@@ -11,7 +11,8 @@ MainWindow::MainWindow(QWidget *parent) :
 {
 
     //tu je napevno nastavena ip. treba zmenit na to co ste si zadali do text boxu alebo nejaku inu pevnu. co bude spravna
-    ipaddress="192.168.1.14";
+    ipaddress="127.0.0.1";
+            // 192.168.1.14
   //  cap.open("http://192.168.1.11:8000/stream.mjpg");
     ui->setupUi(this);
     datacounter=0;
@@ -89,15 +90,45 @@ void  MainWindow::setUiValues(double robotX,double robotY,double robotFi)
 /// vola sa vzdy ked dojdu nove data z robota. nemusite nic riesit, proste sa to stane
 int MainWindow::processThisRobot(TKobukiData robotdata)
 {
+    static int previousEncoderLeft, previousEncoderRight = 0;
+    static double odometerLeft, odometerRight = 0;
+    static double x, y = 0;
+    static double previousRads = 0;
+
+    double dEncoderRight = robotdata.EncoderRight - previousEncoderRight;
+    double dEncoderLeft = robotdata.EncoderLeft - previousEncoderLeft;
+
+    double rightWheel = tTM*(dEncoderRight);
+    double leftWheel = tTM*(dEncoderLeft);
+
+    odometerLeft += leftWheel;
+    odometerRight += rightWheel;
+
+    previousEncoderLeft = robotdata.EncoderLeft;
+    previousEncoderRight = robotdata.EncoderRight;
+
+    double rads = (robotdata.GyroAngle/100.0) * (pi1/180);
+    if(rads < 0) rads += 6.283185;
+
+    if((2.0*(rightWheel - leftWheel)) != 0){
+
+        x += ((diameter*(rightWheel + leftWheel)) / (2.0*(rightWheel - leftWheel)))*(sin(rads) - sin(previousRads));
+        y -= ((diameter*(rightWheel + leftWheel)) / (2.0*(rightWheel - leftWheel)))*(cos(rads) - cos(previousRads));
+
+    }else{
+        x += ((rightWheel + leftWheel)/2.0)*cos(rads);
+        y += ((rightWheel + leftWheel)/2.0)*sin(rads);
+
+    }
+
+
+    ///printf("\n\nLava: %f\nPrava : %f",odometerLeft,odometerRight);
+   ///printf("\n\nUhol : %f",robotdata.GyroAngle/100.0);
+    printf("\nx: %f y: %f rads : %f",x,y,rads);
 
 
 
-
-    ///tu mozete robit s datami z robota
-    /// ale nic vypoctovo narocne - to iste vlakno ktore cita data z robota
-    ///teraz tu posielam rychlosti na zaklade toho co setne joystick a vypisujeme data z robota(kazdy 5ty krat. ale mozete skusit aj castejsie). vyratajte si polohu. a vypiste spravnu
-    /// tuto joystick cast mozete vklude vymazat,alebo znasilnit na vas regulator alebo ake mate pohnutky
-    ///
+    //printf("\nPWMLava: %d\n PWMPrava : %d",robotdata.PWMleft,robotdata.PWMright);
 
 
 
@@ -151,8 +182,8 @@ int MainWindow::processThisCamera(cv::Mat cameraData)
 {
 
     cameraData.copyTo(frame[(actIndex+1)%3]);//kopirujem do nasej strukury
-    cout<<"W: " << cameraData.size().width<< endl;
-    cout<<"H: " << cameraData.size().height<< endl;
+    ///cout<<"W: " << cameraData.size().width<< endl;
+    ///cout<<"H: " << cameraData.size().height<< endl;
     actIndex=(actIndex+1)%3;//aktualizujem kde je nova fotka
     updateLaserPicture=1;
     return 0;
@@ -169,8 +200,8 @@ void MainWindow::on_pushButton_9_clicked() //start button
     /// lambdy su super, setria miesto a ak su rozumnej dlzky,tak aj prehladnost... ak ste o nich nic nepoculi poradte sa s vasim doktorom alebo lekarnikom...
     robot.setLaserParameters(ipaddress,52999,5299,/*[](LaserMeasurement dat)->int{std::cout<<"som z lambdy callback"<<std::endl;return 0;}*/std::bind(&MainWindow::processThisLidar,this,std::placeholders::_1));
     robot.setRobotParameters(ipaddress,53000,5300,std::bind(&MainWindow::processThisRobot,this,std::placeholders::_1));
-    robot.setCameraParameters("http://"+ipaddress+":8000/stream.mjpg",std::bind(&MainWindow::processThisCamera,this,std::placeholders::_1));
-
+    robot.setCameraParameters("http://"+ipaddress+":8889/stream.mjpg",std::bind(&MainWindow::processThisCamera,this,std::placeholders::_1));
+    /// 8000
     ///ked je vsetko nasetovane tak to tento prikaz spusti (ak nieco nieje setnute,tak to normalne nenastavi.cize ak napr nechcete kameru,vklude vsetky info o nej vymazte)
     robot.robotStart();
 
@@ -215,13 +246,13 @@ void MainWindow::on_pushButton_3_clicked() //back
 
 void MainWindow::on_pushButton_6_clicked() //left
 {
-robot.setRotationSpeed(3.14159/2);
+robot.setRotationSpeed(3.14159/3);
 
 }
 
 void MainWindow::on_pushButton_5_clicked()//right
 {
-robot.setRotationSpeed(-3.14159/2);
+robot.setRotationSpeed(-3.14159/3);
 
 }
 

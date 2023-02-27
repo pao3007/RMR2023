@@ -48,7 +48,7 @@ public:
 
     int processThisRobot(TKobukiData robotdata);
 
-int processThisCamera(cv::Mat cameraData);
+    int processThisCamera(cv::Mat cameraData);
 
 private slots:
     void on_pushButton_9_clicked();
@@ -89,5 +89,9 @@ signals:
 
 
 };
+
+#define tTM 0.000085292090497737556558
+#define diameter 0.3015
+#define pi1 3.14159265359
 
 #endif // MAINWINDOW_H
