@@ -51,7 +51,7 @@ void MainWindow::paintEvent(QPaintEvent *event)
 
     if(useCamera1==true && actIndex>-1)/// ak zobrazujem data z kamery a aspon niektory frame vo vectore je naplneny
     {
-        std::cout<<actIndex<<std::endl;
+        ///std::cout<<actIndex<<std::endl;
         QImage image = QImage((uchar*)frame[actIndex].data, frame[actIndex].cols, frame[actIndex].rows, frame[actIndex].step, QImage::Format_RGB888  );//kopirovanie cvmat do qimage
         painter.drawImage(rect,image.rgbSwapped());
     }
@@ -90,45 +90,23 @@ void  MainWindow::setUiValues(double robotX,double robotY,double robotFi)
 /// vola sa vzdy ked dojdu nove data z robota. nemusite nic riesit, proste sa to stane
 int MainWindow::processThisRobot(TKobukiData robotdata)
 {
-    static int previousEncoderLeft, previousEncoderRight = 0;
-    static double odometerLeft, odometerRight = 0;
-    static double x, y = 0;
-    static double previousRads = 0;
-
-    double dEncoderRight = robotdata.EncoderRight - previousEncoderRight;
-    double dEncoderLeft = robotdata.EncoderLeft - previousEncoderLeft;
-
-    double rightWheel = tTM*(dEncoderRight);
-    double leftWheel = tTM*(dEncoderLeft);
-
-    odometerLeft += leftWheel;
-    odometerRight += rightWheel;
-
-    previousEncoderLeft = robotdata.EncoderLeft;
-    previousEncoderRight = robotdata.EncoderRight;
-
-    double rads = (robotdata.GyroAngle/100.0) * (pi1/180);
-    if(rads < 0) rads += 6.283185;
-
-    if((2.0*(rightWheel - leftWheel)) != 0){
-
-        x += ((diameter*(rightWheel + leftWheel)) / (2.0*(rightWheel - leftWheel)))*(sin(rads) - sin(previousRads));
-        y -= ((diameter*(rightWheel + leftWheel)) / (2.0*(rightWheel - leftWheel)))*(cos(rads) - cos(previousRads));
-
-    }else{
-        x += ((rightWheel + leftWheel)/2.0)*cos(rads);
-        y += ((rightWheel + leftWheel)/2.0)*sin(rads);
-
-    }
-
-
-    ///printf("\n\nLava: %f\nPrava : %f",odometerLeft,odometerRight);
-   ///printf("\n\nUhol : %f",robotdata.GyroAngle/100.0);
-    printf("\nx: %f y: %f rads : %f",x,y,rads);
+    static unsigned short previousEncoderLeft = robotdata.EncoderLeft, previousEncoderRight = robotdata.EncoderRight;
+    ///static double odometerLeft, odometerRight = 0;
+    static float x = 0, y = 0;
+    static float previousRads = 0;
+    static double xr = 0.4, yr = 0.0;
+    static double fi = 0;
+    int translation;
+    int rotation;
+    int Pr = 1.5;
+    int Pt = 500;
+    static bool centered = false;
+    //static float e_sum = 0;
 
 
 
-    //printf("\nPWMLava: %d\n PWMPrava : %d",robotdata.PWMleft,robotdata.PWMright);
+
+
 
 
 
@@ -138,6 +116,47 @@ int MainWindow::processThisRobot(TKobukiData robotdata)
 
     if(datacounter%5)
     {
+        if(abs(previousEncoderLeft - robotdata.EncoderLeft) > 10000){
+           printf("\nLeft encoder pretec\n");
+           previousEncoderLeft -= 65535;
+        }
+        if(abs(previousEncoderRight - robotdata.EncoderRight) > 10000){
+           printf("\nRight encoder pretec\n");
+           previousEncoderRight -= 65535;
+        }
+
+
+        float rightWheel = tTM*(robotdata.EncoderRight - previousEncoderRight);
+        float leftWheel = tTM*(robotdata.EncoderLeft - previousEncoderLeft);
+
+        /*odometerLeft += leftWheel;
+        odometerRight += rightWheel;*/
+
+
+        previousEncoderLeft = robotdata.EncoderLeft;
+        previousEncoderRight = robotdata.EncoderRight;
+
+        float rads = (robotdata.GyroAngle/100.0) * (pi1/180.0);
+        ///if(rads < 0) rads += 6.283185;
+
+        if((rightWheel - leftWheel) != 0){
+
+            x += ((diameter*(rightWheel + leftWheel)) / (2.0*(rightWheel - leftWheel)))*(sin(rads) - sin(previousRads));
+            y -= ((diameter*(rightWheel + leftWheel)) / (2.0*(rightWheel - leftWheel)))*(cos(rads) - cos(previousRads));
+
+        }else{
+            x += ((rightWheel + leftWheel)/2.0)*cos(rads);
+            y += ((rightWheel + leftWheel)/2.0)*sin(rads);
+
+        }
+
+        previousRads = rads;
+
+        ///printf("\n\nLava: %f\nPrava : %f",odometerLeft,odometerRight);
+       ///printf("\n\nUhol : %f",robotdata.GyroAngle/100.0);
+        ///printf("\nx: %f y: %f rads : %f",x,y,rads);
+        ///printf("\nPWMLava: %d\n PWMPrava : %d",robotdata.PWMleft,robotdata.PWMright);
+
 
         ///ak nastavite hodnoty priamo do prvkov okna,ako je to na tychto zakomentovanych riadkoch tak sa moze stat ze vam program padne
                 // ui->lineEdit_2->setText(QString::number(robotdata.EncoderRight));
@@ -147,10 +166,70 @@ int MainWindow::processThisRobot(TKobukiData robotdata)
                 /// okno pocuva vo svojom slote a vasu premennu nastavi tak ako chcete. prikaz emit to presne takto spravi
                 /// viac o signal slotoch tu: https://doc.qt.io/qt-5/signalsandslots.html
         ///posielame sem nezmysli.. pohrajte sa nech sem idu zmysluplne veci
-        emit uiValuesChanged(robotdata.EncoderLeft,11,12);
+
         ///toto neodporucam na nejake komplikovane struktury.signal slot robi kopiu dat. radsej vtedy posielajte
         /// prazdny signal a slot bude vykreslovat strukturu (vtedy ju musite mat samozrejme ako member premmennu v mainwindow.ak u niekoho najdem globalnu premennu,tak bude cistit bludisko zubnou kefkou.. kefku dodam)
         /// vtedy ale odporucam pouzit mutex, aby sa vam nestalo ze budete pocas vypisovania prepisovat niekde inde
+        ///
+
+        if((yr-y/xr-x) != 0){
+            fi = atan((yr-y)/(xr-x));
+        }else if ((xr-x) == 0){
+
+            if((yr-y) > 0){
+                fi = pi1/2.0;
+
+            }else fi = -pi1/2.0;
+        }else if ((yr-y) == 0){
+
+            if((xr-x) > 0){
+                fi = 0;
+            }else fi = pi1;
+        }
+
+        float e_fi = fi - rads;
+        float e_pos = xr-x + yr-y;
+
+        translation = Pt * e_pos + 15;
+        if(abs(e_fi) >= 0.2) centered = false;
+
+        if((abs(e_fi) < 0.2) && centered){
+            if(abs(e_pos) < 0.01){
+                translation = 0;
+            }
+            if(translation > 500){
+                translation = 500;
+            }
+
+            if(abs(e_fi) < 0.01){
+                robot.setArcSpeed(translation,0);
+            }else if(e_fi > 0){
+                robot.setArcSpeed(translation,50);
+            }else if(e_fi < 0){
+                robot.setArcSpeed(translation,-50);
+            }
+        }else{
+
+            robot.setRotationSpeed(Pr*e_fi+0.1);
+            if(abs(e_fi) < 0.01) centered = true;
+        }
+
+        //e_sum += e_fi;
+        /*if(abs(e_fi) > 0.01 ){
+
+        }else{
+            robot.setRotationSpeed(0);
+
+            if(Pt*e_pos > 300){
+                robot.setTranslationSpeed(300);
+            }else if(abs(e_pos) > 0.01){
+
+                robot.setTranslationSpeed(Pt*e_pos);
+
+            }else robot.setTranslationSpeed(0);
+
+        }*/
+    emit uiValuesChanged(x,y,e_fi/*rads*(180/pi1)*/);
 
     }
     datacounter++;
