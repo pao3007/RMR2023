@@ -94,13 +94,17 @@ int MainWindow::processThisRobot(TKobukiData robotdata)
     ///static double odometerLeft, odometerRight = 0;
     static float x = 0, y = 0;
     static float previousRads = 0;
-    static double xr = 0.4, yr = 0.0;
+    static double xr = 0.4, yr = 0.4;
     static double fi = 0;
-    int translation;
-    int rotation;
+    static float rads= 0;
+    static int translation = 0;
+    //int rotation;
     int Pr = 1.5;
     int Pt = 500;
     static bool centered = false;
+    double tTM = 0.000085292090497737556558;
+    double diameter = 0.23;
+    double pi1 = 3.14159265359;
     //static float e_sum = 0;
 
 
@@ -114,15 +118,30 @@ int MainWindow::processThisRobot(TKobukiData robotdata)
 
 ///TU PISTE KOD... TOTO JE TO MIESTO KED NEVIETE KDE ZACAT,TAK JE TO NAOZAJ TU. AK AJ TAK NEVIETE, SPYTAJTE SA CVICIACEHO MA TU NATO STRING KTORY DA DO HLADANIA XXX
 
-    if(datacounter%5)
+  //  if(datacounter%5)
     {
-        if(abs(previousEncoderLeft - robotdata.EncoderLeft) > 10000){
+        /*if(abs(previousEncoderLeft - robotdata.EncoderLeft) > 10000){
            printf("\nLeft encoder pretec\n");
-           previousEncoderLeft -= 65535;
+           if(previousEncoderLeft > robotdata.EncoderLeft){
+               previousEncoderLeft -= 65535;
+           }else if(previousEncoderLeft < robotdata.EncoderLeft) previousEncoderLeft += 65535;
+
         }
         if(abs(previousEncoderRight - robotdata.EncoderRight) > 10000){
            printf("\nRight encoder pretec\n");
-           previousEncoderRight -= 65535;
+           if(previousEncoderRight > robotdata.EncoderRight){
+               previousEncoderRight -= 65535;
+           }else if(previousEncoderRight < robotdata.EncoderRight) previousEncoderRight += 65535;
+
+        }*/
+
+        if(abs(previousEncoderLeft - robotdata.EncoderLeft) > 10000){
+            previousEncoderLeft = robotdata.EncoderLeft;
+
+        }
+        if(abs(previousEncoderRight - robotdata.EncoderRight) > 10000){
+
+            previousEncoderRight = robotdata.EncoderRight;
         }
 
 
@@ -136,15 +155,17 @@ int MainWindow::processThisRobot(TKobukiData robotdata)
         previousEncoderLeft = robotdata.EncoderLeft;
         previousEncoderRight = robotdata.EncoderRight;
 
-        float rads = (robotdata.GyroAngle/100.0) * (pi1/180.0);
+        //float rads = (robotdata.GyroAngle/100.0) * (pi1/180.0);
+
         ///if(rads < 0) rads += 6.283185;
 
         if((rightWheel - leftWheel) != 0){
-
+            rads += (rightWheel - leftWheel)/diameter;
             x += ((diameter*(rightWheel + leftWheel)) / (2.0*(rightWheel - leftWheel)))*(sin(rads) - sin(previousRads));
             y -= ((diameter*(rightWheel + leftWheel)) / (2.0*(rightWheel - leftWheel)))*(cos(rads) - cos(previousRads));
 
         }else{
+            rads = (robotdata.GyroAngle/100.0) * (pi1/180.0);
             x += ((rightWheel + leftWheel)/2.0)*cos(rads);
             y += ((rightWheel + leftWheel)/2.0)*sin(rads);
 
@@ -190,15 +211,24 @@ int MainWindow::processThisRobot(TKobukiData robotdata)
         float e_fi = fi - rads;
         float e_pos = xr-x + yr-y;
 
-        translation = Pt * e_pos + 15;
+        float translation_reg = Pt * e_pos + 15;
         if(abs(e_fi) >= 0.2) centered = false;
 
         if((abs(e_fi) < 0.2) && centered){
+
+            if(translation_reg > 500){
+                translation_reg = 500;
+            }
+
+            if(translation <= translation_reg){
+                translation += 10;
+            }else if(translation > translation_reg) translation -= 20;
+
+            if(translation > translation_reg) translation = translation_reg;
+            if(translation < 0) translation = 0;
+
             if(abs(e_pos) < 0.01){
                 translation = 0;
-            }
-            if(translation > 500){
-                translation = 500;
             }
 
             if(abs(e_fi) < 0.01){
@@ -229,7 +259,7 @@ int MainWindow::processThisRobot(TKobukiData robotdata)
             }else robot.setTranslationSpeed(0);
 
         }*/
-    emit uiValuesChanged(x,y,e_fi/*rads*(180/pi1)*/);
+    emit uiValuesChanged(x,y,rads/*e_fi/*rads*(180/pi1)*/);
 
     }
     datacounter++;
@@ -305,14 +335,15 @@ void MainWindow::on_pushButton_2_clicked() //forward
     int targetVelocity,currentVelocity;
 
 
-    targetVelocity = 500;
-    currentVelocity = 50;
+    targetVelocity = 50;
+    /*currentVelocity = 50;
     robot.setTranslationSpeed(currentVelocity);
     while(currentVelocity < targetVelocity){
         this_thread::sleep_for(50ms);
         currentVelocity += 10;
         robot.setTranslationSpeed(currentVelocity);
-    }
+    }*/
+     robot.setTranslationSpeed(targetVelocity);
 
 
 }

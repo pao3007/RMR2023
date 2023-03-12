@@ -90,8 +90,8 @@ signals:
 
 };
 
-#define tTM 0.000085292090497737556558
-#define diameter 0.26
-#define pi1 3.14159265359
+/*#define tTM 0.000085292090497737556558
+#define diameter 0.23
+#define pi1 3.14159265359*/
 
 #endif // MAINWINDOW_H
