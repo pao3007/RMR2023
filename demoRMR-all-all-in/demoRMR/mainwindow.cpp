@@ -2,6 +2,8 @@
 #include "ui_mainwindow.h"
 #include <QPainter>
 #include <math.h>
+#include <iostream>
+#include <queue>
 ////Pavol Lukac & Denis Svec
 
 
@@ -90,16 +92,18 @@ void  MainWindow::setUiValues(double robotX,double robotY,double robotFi)
 /// vola sa vzdy ked dojdu nove data z robota. nemusite nic riesit, proste sa to stane
 int MainWindow::processThisRobot(TKobukiData robotdata)
 {
-    static unsigned short previousEncoderLeft = robotdata.EncoderLeft, previousEncoderRight = robotdata.EncoderRight;
+    static bool start = true;
+    static int previousEncoderLeft = robotdata.EncoderLeft, previousEncoderRight = robotdata.EncoderRight;
     ///static double odometerLeft, odometerRight = 0;
     static float x = 0, y = 0;
     static float previousRads = 0;
-    static double xr = 0.4, yr = 0.4;
+    static queue<double> qxr, qyr;
+    static double yr = 0, xr = 0;
     static double fi = 0;
     static float rads= 0;
     static int translation = 0;
     //int rotation;
-    int Pr = 1.5;
+    double Pr = 1.00;
     int Pt = 500;
     static bool centered = false;
     double tTM = 0.000085292090497737556558;
@@ -107,6 +111,18 @@ int MainWindow::processThisRobot(TKobukiData robotdata)
     double pi1 = 3.14159265359;
     //static float e_sum = 0;
 
+    if(start){
+        qxr.push(0.5);
+        qxr.push(1.0);
+        qxr.push(0.0);
+        qxr.push(0.2);
+
+        qyr.push(0.5);
+        qyr.push(0.5);
+        qyr.push(0.0);
+        qyr.push(1.0);
+        start = false;
+    }
 
 
 
@@ -120,7 +136,7 @@ int MainWindow::processThisRobot(TKobukiData robotdata)
 
   //  if(datacounter%5)
     {
-        /*if(abs(previousEncoderLeft - robotdata.EncoderLeft) > 10000){
+        if(abs(previousEncoderLeft - robotdata.EncoderLeft) > 10000){
            printf("\nLeft encoder pretec\n");
            if(previousEncoderLeft > robotdata.EncoderLeft){
                previousEncoderLeft -= 65535;
@@ -133,17 +149,7 @@ int MainWindow::processThisRobot(TKobukiData robotdata)
                previousEncoderRight -= 65535;
            }else if(previousEncoderRight < robotdata.EncoderRight) previousEncoderRight += 65535;
 
-        }*/
-
-        if(abs(previousEncoderLeft - robotdata.EncoderLeft) > 10000){
-            previousEncoderLeft = robotdata.EncoderLeft;
-
         }
-        if(abs(previousEncoderRight - robotdata.EncoderRight) > 10000){
-
-            previousEncoderRight = robotdata.EncoderRight;
-        }
-
 
         float rightWheel = tTM*(robotdata.EncoderRight - previousEncoderRight);
         float leftWheel = tTM*(robotdata.EncoderLeft - previousEncoderLeft);
@@ -158,14 +164,26 @@ int MainWindow::processThisRobot(TKobukiData robotdata)
         //float rads = (robotdata.GyroAngle/100.0) * (pi1/180.0);
 
         ///if(rads < 0) rads += 6.283185;
+        ///
+
+        if(translation == 0){
+            rads = (robotdata.GyroAngle/100.0) * (pi1/180.0);
+            //if(rads < 0) rads += 6.283185;
+        }else {
+            rads += (rightWheel - leftWheel)/diameter;
+            if(rads > (6.283185/2)){
+                rads = -(6.283185/2) + (rads-(6.283185/2));
+            }else if(rads < -(6.283185/2)){
+                rads = (6.283185/2) + (rads + (6.283185/2));
+            }
+        }
+
 
         if((rightWheel - leftWheel) != 0){
-            rads += (rightWheel - leftWheel)/diameter;
             x += ((diameter*(rightWheel + leftWheel)) / (2.0*(rightWheel - leftWheel)))*(sin(rads) - sin(previousRads));
             y -= ((diameter*(rightWheel + leftWheel)) / (2.0*(rightWheel - leftWheel)))*(cos(rads) - cos(previousRads));
 
         }else{
-            rads = (robotdata.GyroAngle/100.0) * (pi1/180.0);
             x += ((rightWheel + leftWheel)/2.0)*cos(rads);
             y += ((rightWheel + leftWheel)/2.0)*sin(rads);
 
@@ -173,51 +191,43 @@ int MainWindow::processThisRobot(TKobukiData robotdata)
 
         previousRads = rads;
 
-        ///printf("\n\nLava: %f\nPrava : %f",odometerLeft,odometerRight);
-       ///printf("\n\nUhol : %f",robotdata.GyroAngle/100.0);
-        ///printf("\nx: %f y: %f rads : %f",x,y,rads);
-        ///printf("\nPWMLava: %d\n PWMPrava : %d",robotdata.PWMleft,robotdata.PWMright);
+        ///POLOHOVANIE
+
+        if(!qyr.empty()){
+            yr = qyr.front();
+            xr = qxr.front();
+        }
 
 
-        ///ak nastavite hodnoty priamo do prvkov okna,ako je to na tychto zakomentovanych riadkoch tak sa moze stat ze vam program padne
-                // ui->lineEdit_2->setText(QString::number(robotdata.EncoderRight));
-                //ui->lineEdit_3->setText(QString::number(robotdata.EncoderLeft));
-                //ui->lineEdit_4->setText(QString::number(robotdata.GyroAngle));
-                /// lepsi pristup je nastavit len nejaku premennu, a poslat signal oknu na prekreslenie
-                /// okno pocuva vo svojom slote a vasu premennu nastavi tak ako chcete. prikaz emit to presne takto spravi
-                /// viac o signal slotoch tu: https://doc.qt.io/qt-5/signalsandslots.html
-        ///posielame sem nezmysli.. pohrajte sa nech sem idu zmysluplne veci
+        if((yr-y) >= 0){
+            fi = acos((xr-x)/(sqrt(pow((xr-x),2) + pow((yr-y),2) )));
 
-        ///toto neodporucam na nejake komplikovane struktury.signal slot robi kopiu dat. radsej vtedy posielajte
-        /// prazdny signal a slot bude vykreslovat strukturu (vtedy ju musite mat samozrejme ako member premmennu v mainwindow.ak u niekoho najdem globalnu premennu,tak bude cistit bludisko zubnou kefkou.. kefku dodam)
-        /// vtedy ale odporucam pouzit mutex, aby sa vam nestalo ze budete pocas vypisovania prepisovat niekde inde
-        ///
+        }else if((xr-y) >= 0){
+            fi = asin((yr-y)/(sqrt(pow((xr-x),2) + pow((yr-y),2) )));
 
-        if((yr-y/xr-x) != 0){
-            fi = atan((yr-y)/(xr-x));
-        }else if ((xr-x) == 0){
-
-            if((yr-y) > 0){
-                fi = pi1/2.0;
-
-            }else fi = -pi1/2.0;
-        }else if ((yr-y) == 0){
-
-            if((xr-x) > 0){
-                fi = 0;
-            }else fi = pi1;
+        }else{
+            fi = (-6.283185/2)+atan((yr-y)/(xr-x));
         }
 
         float e_fi = fi - rads;
-        float e_pos = xr-x + yr-y;
+        if(e_fi > (6.283185/2)){
+            e_fi -= 6.283185;
+        }else if(e_fi < (-6.283185/2)){
+            e_fi +=6.283185;
+        }
 
-        float translation_reg = Pt * e_pos + 15;
-        if(abs(e_fi) >= 0.2) centered = false;
 
-        if((abs(e_fi) < 0.2) && centered){
+        float e_pos =sqrt(pow((xr-x),2)+ pow((yr-y),2));
 
-            if(translation_reg > 500){
-                translation_reg = 500;
+
+
+        float translation_reg = Pt * e_pos + 50;
+        if(abs(e_fi) >= 0.4) centered = false;
+
+        if((abs(e_fi) < 0.4) && centered){
+
+            if(translation_reg > 400){
+                translation_reg = 400;
             }
 
             if(translation <= translation_reg){
@@ -227,39 +237,28 @@ int MainWindow::processThisRobot(TKobukiData robotdata)
             if(translation > translation_reg) translation = translation_reg;
             if(translation < 0) translation = 0;
 
-            if(abs(e_pos) < 0.01){
+            if(e_pos < 0.01){
                 translation = 0;
+                if(!qyr.empty()){
+                    qyr.pop();
+                    qxr.pop();
+                }
             }
 
             if(abs(e_fi) < 0.01){
                 robot.setArcSpeed(translation,0);
             }else if(e_fi > 0){
-                robot.setArcSpeed(translation,50);
+                robot.setArcSpeed(translation,300);
             }else if(e_fi < 0){
-                robot.setArcSpeed(translation,-50);
+                robot.setArcSpeed(translation,-300);
             }
         }else{
 
-            robot.setRotationSpeed(Pr*e_fi+0.1);
-            if(abs(e_fi) < 0.01) centered = true;
+            robot.setRotationSpeed(Pr*e_fi);
+            if(abs(e_fi) < 0.025) centered = true;
         }
 
-        //e_sum += e_fi;
-        /*if(abs(e_fi) > 0.01 ){
-
-        }else{
-            robot.setRotationSpeed(0);
-
-            if(Pt*e_pos > 300){
-                robot.setTranslationSpeed(300);
-            }else if(abs(e_pos) > 0.01){
-
-                robot.setTranslationSpeed(Pt*e_pos);
-
-            }else robot.setTranslationSpeed(0);
-
-        }*/
-    emit uiValuesChanged(x,y,rads/*e_fi/*rads*(180/pi1)*/);
+    emit uiValuesChanged(fi, rads,(abs(e_fi))/*e_fi/*rads*(180/pi1)*/);
 
     }
     datacounter++;
