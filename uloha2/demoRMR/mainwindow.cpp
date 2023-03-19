@@ -6,6 +6,11 @@
 #include <queue>
 ////Pavol Lukac & Denis Svec
 
+static float x_pos = 0, y_pos = 0;
+static queue<double> qxr, qyr;
+static float yr = 0, xr = 0;
+static float finish_X = 5, finish_Y = 5;
+
 MainWindow::MainWindow(QWidget *parent) :
     QMainWindow(parent),
     ui(new Ui::MainWindow)
@@ -97,10 +102,9 @@ int MainWindow::processThisRobot(TKobukiData robotdata)
     static bool start = true;
     static int previousEncoderLeft = robotdata.EncoderLeft, previousEncoderRight = robotdata.EncoderRight;
     ///static double odometerLeft, odometerRight = 0;
-    static float x = 0, y = 0;
+
     static float previousRads = 0;
-    static queue<double> qxr, qyr;
-    static double yr = 0, xr = 0;
+    float x = 0, y = 0;
     static double fi = 0;
     static float rads= 0;
     static int translation = 0;
@@ -116,16 +120,13 @@ int MainWindow::processThisRobot(TKobukiData robotdata)
     QRect rect;
     rect= ui->frame->geometry();//ziskate porametre stvorca,do ktoreho chcete kreslit
     rect.translate(0,15);
-    int cloud[360][3];
-    int cloud_distance[360];
-    double corner_1[3];
-    double corner_2[3];
+
 
     //body kde ma ist robot
     if(start){
-        qxr.push(4);
+        qxr.push(finish_X);
 
-        qyr.push(4);
+        qyr.push(finish_Y);
 
         start = false;
     }
@@ -194,98 +195,17 @@ int MainWindow::processThisRobot(TKobukiData robotdata)
             y += ((rightWheel + leftWheel)/2.0)*sin(rads);
 
         }
-
+        x_pos = x;
+        y_pos = y;
         previousRads = rads;
 
 
 
         ///POLOHOVANIE
 
-        if(!qyr.empty()){
-            yr = qyr.front();
-            xr = qxr.front();
-        }
-        // dorobit hladania lider bodov k finalnemu bodu (pozicia robota k finalnemu bodu)
-        //hladat ci je corner blizsie ako finalny bod
 
-        for(int k=0;k<copyOfLaserData.numberOfScans/*360*/;k++)
-        {
-            //distance
-            cloud[k][0]=copyOfLaserData.Data[k].scanDistance/20; ///vzdialenost nahodne predelena 20 aby to nejako vyzeralo v okne.. zmen podla uvazenia
-            //x
-            cloud[k][1]=rect.width()-(rect.width()/2+cloud[k][0]*2*sin((360.0-copyOfLaserData.Data[k].scanAngle)*3.14159/180.0))+rect.topLeft().x(); //prepocet do obrazovky
-            //y
-            cloud[k][2]=rect.height()-(rect.height()/2+cloud[k][0]*2*cos((360.0-copyOfLaserData.Data[k].scanAngle)*3.14159/180.0))+rect.topLeft().y();//prepocet do obrazovky
-
-
-
-
-            if(k != 276){
-                //distance
-                cloud[k+1][0]=copyOfLaserData.Data[k+1].scanDistance/20; ///vzdialenost nahodne predelena 20 aby to nejako vyzeralo v okne.. zmen podla uvazenia
-                //x
-                cloud[k+1][1]=rect.width()-(rect.width()/2+cloud[k+1][0]*2*sin((360.0-copyOfLaserData.Data[k+1].scanAngle)*3.14159/180.0))+rect.topLeft().x(); //prepocet do obrazovky
-                //y
-                cloud[k+1][2]=rect.height()-(rect.height()/2+cloud[k+1][0]*2*cos((360.0-copyOfLaserData.Data[k+1].scanAngle)*3.14159/180.0))+rect.topLeft().y();//prepocet do obrazovky
-
-                cloud_distance[k]= sqrt((cloud[k+1][1]-cloud[k][1])*(cloud[k+1][1]-cloud[k][1]) + (cloud[k+1][2]-cloud[k][2])*(cloud[k+1][2]-cloud[k][2]));
-
-            }else{
-                cloud_distance[k]= sqrt((cloud[0][1]-cloud[k][1])*(cloud[0][1]-cloud[k][1]) + (cloud[0][2]-cloud[k][2])*(cloud[0][2]-cloud[k][2]));
-            }
-
-            if(cloud_distance[k] >= 60 && cloud[k][0] <= 180 && k != 276){
-                corner_1[0]=cloud[k][1]/1000; //x
-                corner_1[1]=cloud[k][2]/1000; //y
-                corner_1[2]=cloud[k][0]/1000; //distance from robot
-
-                corner_2[0]=cloud[k+1][1]/1000; //x
-                corner_2[1]=cloud[k+1][2]/1000; //y
-                corner_2[2]=cloud[k+1][0]/1000; //distance from robot
-
-                //select point closer to destination
-
-                int distance_corner1_to_robot= sqrt((corner_1[0]-x)*(corner_1[0]-x) + (corner_1[1]-y)*(corner_1[1]-y));
-                int distance_corner2_to_robot= sqrt((corner_2[0]-x)*(corner_2[0]-x) + (corner_2[1]-y)*(corner_2[1]-y));
-                int distance_corner1_to_finish= sqrt((corner_1[0]-xr)*(corner_1[0]-xr) + (corner_1[1]-yr)*(corner_1[1]-yr));
-                int distance_corner2_to_finish= sqrt((corner_1[0]-xr)*(corner_1[0]-xr) + (corner_1[1]-yr)*(corner_1[1]-yr));
-
-                if((distance_corner2_to_robot + distance_corner2_to_finish) < (distance_corner1_to_robot + distance_corner1_to_finish)){
-                    corner_1[0]=corner_2[0]; //x
-                    corner_1[1]=corner_2[1]; //y
-                    corner_1[2]=corner_2[2]; //distance from robot
-                }
-
-            }else if(cloud_distance[k] >= 60 && cloud[k][0] <= 180){
-                corner_1[0]=cloud[k][1]/1000; //x
-                corner_1[1]=cloud[k][2]/1000; //y
-                corner_1[2]=cloud[k][0]/1000; //distance from robot
-
-                corner_2[0]=cloud[0][1]/1000; //x
-                corner_2[1]=cloud[0][2]/1000; //y
-                corner_2[2]=cloud[0][0]/1000; //distance from robot
-
-                //select point closer to destination
-
-                int distance_corner1_to_robot= sqrt((corner_1[0]-x)*(corner_1[0]-x) + (corner_1[1]-y)*(corner_1[1]-y));
-                int distance_corner2_to_robot= sqrt((corner_2[0]-x)*(corner_2[0]-x) + (corner_2[1]-y)*(corner_2[1]-y));
-                int distance_corner1_to_finish= sqrt((corner_1[0]-xr)*(corner_1[0]-xr) + (corner_1[1]-yr)*(corner_1[1]-yr));
-                int distance_corner2_to_finish= sqrt((corner_1[0]-xr)*(corner_1[0]-xr) + (corner_1[1]-yr)*(corner_1[1]-yr));
-
-                if((distance_corner2_to_robot + distance_corner2_to_finish) < (distance_corner1_to_robot + distance_corner1_to_finish)){
-                    corner_1[0]=corner_2[0]; //x
-                    corner_1[1]=corner_2[1]; //y
-                    corner_1[2]=corner_2[2]; //distance from robot
-                }
-
-            }
-
-           // printf("X: %d   Y: %d   Dis: %d  K: %d points_dis: %d\n",cloud[k][1] ,cloud[k][2] , cloud[k][0], k,cloud_distance[k]);
-
-            printf("X: %f   Y: %f   Dis: %f\n",corner_1[0], corner_1[1],corner_1[2]);
-
-
-        }
+        //TODO: dorobit hladania lider bodov k finalnemu bodu (pozicia robota k finalnemu bodu)
+        //TODO: hladat ci je corner blizsie ako finalny bod
 
 
 
@@ -361,11 +281,190 @@ int MainWindow::processThisRobot(TKobukiData robotdata)
 /// vola sa ked dojdu nove data z lidaru
 int MainWindow::processThisLidar(LaserMeasurement laserData)
 {
+    QRect rect;
+    rect= ui->frame->geometry();//ziskate porametre stvorca,do ktoreho chcete kreslit
+    rect.translate(0,15);
+    static float cloud[360][3];
+    static float cloud_distance[360];
+    static float corner_1[3];
+    static float corner_2[3];
+    static float corner_destination[3];
+    static float midpoint_x,midpoint_y;
+    float scale = 100;
+    float distance_D_corner1_to_robot=10000;
+    float distance_D_corner2_to_finish=10000;
 
 
     memcpy( &copyOfLaserData,&laserData,sizeof(LaserMeasurement));
     //tu mozete robit s datami z lidaru.. napriklad najst prekazky, zapisat do mapy. naplanovat ako sa prekazke vyhnut.
     // ale nic vypoctovo narocne - to iste vlakno ktore cita data z lidaru
+    for(int k=0;k<copyOfLaserData.numberOfScans/*360*/;k++)
+    {
+        //distance
+        cloud[k][0]=copyOfLaserData.Data[k].scanDistance/20; ///vzdialenost nahodne predelena 20 aby to nejako vyzeralo v okne.. zmen podla uvazenia
+        //x
+        cloud[k][1]=rect.width()-(rect.width()/2+cloud[k][0]*2*sin((360.0-copyOfLaserData.Data[k].scanAngle)*3.14159/180.0))+rect.topLeft().x(); //prepocet do obrazovky
+        //y
+        cloud[k][2]=rect.height()-(rect.height()/2+cloud[k][0]*2*cos((360.0-copyOfLaserData.Data[k].scanAngle)*3.14159/180.0))+rect.topLeft().y();//prepocet do obrazovky
+
+
+
+        //pocita vzdialenost medzi dvoma bodmi z lidaru
+        if(k != 276){
+            //distance
+            cloud[k+1][0]=copyOfLaserData.Data[k+1].scanDistance/20; ///vzdialenost nahodne predelena 20 aby to nejako vyzeralo v okne.. zmen podla uvazenia
+            //x
+            cloud[k+1][1]=rect.width()-(rect.width()/2+cloud[k+1][0]*2*sin((360.0-copyOfLaserData.Data[k+1].scanAngle)*3.14159/180.0))+rect.topLeft().x(); //prepocet do obrazovky
+            //y
+            cloud[k+1][2]=rect.height()-(rect.height()/2+cloud[k+1][0]*2*cos((360.0-copyOfLaserData.Data[k+1].scanAngle)*3.14159/180.0))+rect.topLeft().y();//prepocet do obrazovky
+
+            cloud_distance[k]= sqrt((cloud[k+1][1]-cloud[k][1])*(cloud[k+1][1]-cloud[k][1]) + (cloud[k+1][2]-cloud[k][2])*(cloud[k+1][2]-cloud[k][2]));
+
+        }else{
+            cloud_distance[k]= sqrt((cloud[0][1]-cloud[k][1])*(cloud[0][1]-cloud[k][1]) + (cloud[0][2]-cloud[k][2])*(cloud[0][2]-cloud[k][2]));
+        }
+
+
+        // vyberie 2 body ktore su od seba najdalej predpoklada sa ze to budu rohy prekazok (funguje len do urcitej dialky)
+        if(cloud_distance[k] >= 60 && k != 276){
+            corner_1[0]=cloud[k][1]/scale; //x
+            corner_1[1]=cloud[k][2]/scale; //y
+            corner_1[2]=cloud[k][0]/scale; //distance from robot
+
+            corner_2[0]=cloud[k+1][1]/scale; //x
+            corner_2[1]=cloud[k+1][2]/scale; //y
+            corner_2[2]=cloud[k+1][0]/scale; //distance from robot
+
+            //pocitanie vzdialenosti robota k finalnemu bodu
+
+            float distance_corner1_to_robot= sqrt((corner_1[0]-x_pos)*(corner_1[0]-x_pos) + (corner_1[1]-y_pos)*(corner_1[1]-y_pos));
+            float distance_corner2_to_robot= sqrt((corner_2[0]-x_pos)*(corner_2[0]-x_pos) + (corner_2[1]-y_pos)*(corner_2[1]-y_pos));
+            float distance_corner1_to_finish= sqrt((corner_1[0]-finish_X)*(corner_1[0]-finish_X) + (corner_1[1]-finish_Y)*(corner_1[1]-finish_Y));
+            float distance_corner2_to_finish= sqrt((corner_1[0]-finish_X)*(corner_1[0]-finish_X) + (corner_1[1]-finish_Y)*(corner_1[1]-finish_Y));
+
+
+           if(corner_destination[0] == NULL){
+                    corner_destination[0]=corner_2[0]; //x
+                    corner_destination[1]=corner_2[1]; //y
+                    corner_destination[2]=corner_2[2]; //distance from robot
+
+                    distance_D_corner1_to_robot= sqrt((corner_destination[0]-x_pos)*(corner_destination[0]-x_pos) + (corner_destination[1]-y_pos)*(corner_destination[1]-y_pos));
+                    distance_D_corner2_to_finish= sqrt((corner_destination[0]-finish_X)*(corner_destination[0]-finish_X) + (corner_destination[1]-finish_Y)*(corner_destination[1]-finish_Y));
+
+
+            }else if(((distance_corner2_to_robot + distance_corner2_to_finish) < (distance_D_corner1_to_robot + distance_D_corner2_to_finish)) || ((distance_corner1_to_robot + distance_corner1_to_finish) < (distance_D_corner1_to_robot + distance_D_corner2_to_finish))){
+
+               if((distance_corner2_to_robot + distance_corner2_to_finish) < (distance_corner1_to_robot + distance_corner1_to_finish)){
+                   corner_destination[0]=corner_2[0]; //x
+                   corner_destination[1]=corner_2[1]; //y
+                   corner_destination[2]=corner_2[2]; //distance from robot
+
+                   distance_D_corner1_to_robot= sqrt((corner_destination[0]-x_pos)*(corner_destination[0]-x_pos) + (corner_destination[1]-y_pos)*(corner_destination[1]-y_pos));
+                   distance_D_corner2_to_finish= sqrt((corner_destination[0]-finish_X)*(corner_destination[0]-finish_X) + (corner_destination[1]-finish_Y)*(corner_destination[1]-finish_Y));
+                   midpoint_x = (corner_1[0]+corner_2[0])/2;
+                   midpoint_y = (corner_1[1]+corner_2[1])/2;
+
+//                       midpoint_x = corner_1[0];
+//                       midpoint_y = corner_1[1];
+
+                }else{
+                   corner_destination[0]=corner_1[0]; //x
+                   corner_destination[1]=corner_1[1]; //y
+                   corner_destination[2]=corner_1[2]; //distance from robot
+
+                   distance_D_corner1_to_robot= sqrt((corner_destination[0]-x_pos)*(corner_destination[0]-x_pos) + (corner_destination[1]-y_pos)*(corner_destination[1]-y_pos));
+                   distance_D_corner2_to_finish= sqrt((corner_destination[0]-finish_X)*(corner_destination[0]-finish_X) + (corner_destination[1]-finish_Y)*(corner_destination[1]-finish_Y));
+                   midpoint_x = (corner_1[0]+corner_2[0])/2;
+                   midpoint_y = (corner_1[1]+corner_2[1])/2;
+//                       midpoint_x = corner_1[0];
+//                       midpoint_y = corner_1[1];
+
+               }
+
+
+
+           }
+
+            if((distance_corner2_to_robot + distance_corner2_to_finish) < (distance_corner1_to_robot + distance_corner1_to_finish)){
+                corner_1[0]=corner_2[0]; //x
+                corner_1[1]=corner_2[1]; //y
+                corner_1[2]=corner_2[2]; //distance from robot
+            }
+
+        }else if(cloud_distance[k] >= 60 && k == 276){
+            corner_1[0]=cloud[k][1]/scale; //x
+            corner_1[1]=cloud[k][2]/scale; //y
+            corner_1[2]=cloud[k][0]/scale; //distance from robot
+
+            corner_2[0]=cloud[0][1]/scale; //x
+            corner_2[1]=cloud[0][2]/scale; //y
+            corner_2[2]=cloud[0][0]/scale; //distance from robot
+
+            //select point closer to destination
+
+            float distance_corner1_to_robot= sqrt((corner_1[0]-x_pos)*(corner_1[0]-x_pos) + (corner_1[1]-y_pos)*(corner_1[1]-y_pos));
+            float distance_corner2_to_robot= sqrt((corner_2[0]-x_pos)*(corner_2[0]-x_pos) + (corner_2[1]-y_pos)*(corner_2[1]-y_pos));
+            float distance_corner1_to_finish= sqrt((corner_1[0]-xr)*(corner_1[0]-xr) + (corner_1[1]-yr)*(corner_1[1]-yr));
+            float distance_corner2_to_finish= sqrt((corner_1[0]-xr)*(corner_1[0]-xr) + (corner_1[1]-yr)*(corner_1[1]-yr));
+
+            if(corner_destination[0] == NULL){
+                     corner_destination[0]=corner_2[0]; //x
+                     corner_destination[1]=corner_2[1]; //y
+                     corner_destination[2]=corner_2[2]; //distance from robot
+
+                     distance_D_corner1_to_robot= sqrt((corner_destination[0]-x_pos)*(corner_destination[0]-x_pos) + (corner_destination[1]-y_pos)*(corner_destination[1]-y_pos));
+                     distance_D_corner2_to_finish= sqrt((corner_destination[0]-finish_X)*(corner_destination[0]-finish_X) + (corner_destination[1]-finish_Y)*(corner_destination[1]-finish_Y));
+
+
+             }else if(((distance_corner2_to_robot + distance_corner2_to_finish) < (distance_D_corner1_to_robot + distance_D_corner2_to_finish)) || ((distance_corner1_to_robot + distance_corner1_to_finish) < (distance_D_corner1_to_robot + distance_D_corner2_to_finish))){
+
+                if((distance_corner2_to_robot + distance_corner2_to_finish) < (distance_corner1_to_robot + distance_corner1_to_finish)){
+                    corner_destination[0]=corner_2[0]; //x
+                    corner_destination[1]=corner_2[1]; //y
+                    corner_destination[2]=corner_2[2]; //distance from robot
+
+                    distance_D_corner1_to_robot= sqrt((corner_destination[0]-x_pos)*(corner_destination[0]-x_pos) + (corner_destination[1]-y_pos)*(corner_destination[1]-y_pos));
+                    distance_D_corner2_to_finish= sqrt((corner_destination[0]-finish_X)*(corner_destination[0]-finish_X) + (corner_destination[1]-finish_Y)*(corner_destination[1]-finish_Y));
+                    midpoint_x = (corner_1[0]+corner_2[0])/2;
+                    midpoint_y = (corner_1[1]+corner_2[1])/2;
+
+//                       midpoint_x = corner_1[0];
+//                       midpoint_y = corner_1[1];
+
+
+                 }else{
+                    corner_destination[0]=corner_1[0]; //x
+                    corner_destination[1]=corner_1[1]; //y
+                    corner_destination[2]=corner_1[2]; //distance from robot
+
+                    distance_D_corner1_to_robot= sqrt((corner_destination[0]-x_pos)*(corner_destination[0]-x_pos) + (corner_destination[1]-y_pos)*(corner_destination[1]-y_pos));
+                    distance_D_corner2_to_finish= sqrt((corner_destination[0]-finish_X)*(corner_destination[0]-finish_X) + (corner_destination[1]-finish_Y)*(corner_destination[1]-finish_Y));
+                    midpoint_x = (corner_1[0]+corner_2[0])/2;
+                    midpoint_y = (corner_1[1]+corner_2[1])/2;
+//                       midpoint_x = corner_1[0];
+//                       midpoint_y = corner_1[1];
+
+                }
+
+
+
+            }
+
+
+        }
+
+       // printf("X: %d   Y: %d   Dis: %d  K: %d points_dis: %d\n",cloud[k][1] ,cloud[k][2] , cloud[k][0], k,cloud_distance[k]);
+
+        //printf("X: %f   Y: %f   Dis: %f\n",corner_1[0], corner_1[1],corner_1[2]);
+
+        printf("X: %f   Y: %f \n",midpoint_x, midpoint_y);
+        if(yr !=midpoint_y && midpoint_x !=xr && midpoint_y != 0 && midpoint_x != 0){
+            yr = midpoint_y;
+            xr = midpoint_x;
+        }
+
+    }
+
     updateLaserPicture=1;
     update();//tento prikaz prinuti prekreslit obrazovku.. zavola sa paintEvent funkcia
 
