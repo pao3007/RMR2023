@@ -25,6 +25,28 @@
 #include "robot.h"
 
 #include <QJoysticks.h>
+
+typedef struct
+{
+    int scanQuality;
+    double scanAngle;
+    double scanDistance;
+}MojeLaserData;
+
+typedef struct
+{
+
+    float x;
+    float y;
+    float angle;
+    int translation;
+    int numberOfScans;
+    MojeLaserData Data[1000];
+    bool stop;
+    bool moving;
+
+}MojRobot;
+
 namespace Ui {
 class MainWindow;
 }
