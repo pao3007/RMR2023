@@ -4,7 +4,7 @@
 #include <math.h>
 #include <iostream>
 #include <queue>
-MojRobot mojRobot;
+
 ////Pavol Lukac & Denis Svec
 
 
@@ -14,7 +14,8 @@ MainWindow::MainWindow(QWidget *parent) :
 {
 
     //tu je napevno nastavena ip. treba zmenit na to co ste si zadali do text boxu alebo nejaku inu pevnu. co bude spravna
-    ipaddress="192.168.1.14";
+    //ipaddress="192.168.1.14";
+    ipaddress="127.0.0.1";
             //
     // 127.0.0.1
   //  cap.open("http://192.168.1.11:8000/stream.mjpg");
@@ -124,19 +125,24 @@ int MainWindow::processThisRobot(TKobukiData robotdata)
         qyr.push(0.00);*/
         qxr.push(0);qyr.push(0);
 
-        qxr.push(0);qyr.push(1.45);
-        qxr.push(0);qyr.push(2.90);
+        //qxr.push(0);qyr.push(1.45);
+        qxr.push(0);qyr.push(3.20);
 
-        qxr.push(1.40);qyr.push(2.90);
-        qxr.push(2.70);qyr.push(2.90);
+        //qxr.push(1.40);qyr.push(2.90);
+        qxr.push(2.70);qyr.push(3.30);
 
-        qxr.push(2.70);qyr.push(1.30);
+        qxr.push(3.70);qyr.push(3.50);
+
+        qxr.push(2.70);qyr.push(3.30);
+
+       // qxr.push(2.70);qyr.push(1.30);
         qxr.push(2.70);qyr.push(0.0);
 
-        qxr.push(3.5);qyr.push(0.0);
+        //qxr.push(3.5);qyr.push(0.0);
         qxr.push(4.6);qyr.push(0.0);
 
-        qxr.push(4.6);qyr.push(1.6);
+        qxr.push(4.6);qyr.push(1.8);
+        ///
         ///
 
 
@@ -147,7 +153,7 @@ int MainWindow::processThisRobot(TKobukiData robotdata)
 
 
 
-
+        mojRobot.numOfPoints = qxr.size();
         start = false;
     }
 
@@ -197,21 +203,12 @@ int MainWindow::processThisRobot(TKobukiData robotdata)
             mojRobot.moving = true;
         }else if((rightWheel == 0) && (leftWheel == 0)) mojRobot.moving = false;
 
-        /*odometerLeft += leftWheel;
-        odometerRight += rightWheel;*/
-
 
         previousEncoderLeft = robotdata.EncoderLeft;
         previousEncoderRight = robotdata.EncoderRight;
 
-        //float rads = (robotdata.GyroAngle/100.0) * (pi1/180.0);
-
-        ///if(rads < 0) rads += 6.283185;
-        ///
-
         if(translation == 0){
             rads = (robotdata.GyroAngle/100.0) * (pi1/180.0);
-            //if(rads < 0) rads += 6.283185;
         }else {
             rads += (rightWheel - leftWheel)/diameter;
             if(rads > (6.283185/2)){
@@ -220,14 +217,6 @@ int MainWindow::processThisRobot(TKobukiData robotdata)
                 rads = (6.283185/2) + (rads + (6.283185/2));
             }
         }
-
-        /*rads += (rightWheel - leftWheel)/diameter;
-        if(rads > (6.283185/2)){
-            rads = -(6.283185/2) + (rads-(6.283185/2));
-        }else if(rads < -(6.283185/2)){
-            rads = (6.283185/2) + (rads + (6.283185/2));
-        }*/
-
 
         if((rightWheel - leftWheel) != 0 && translation != 0){
             x += ((diameter*(rightWheel + leftWheel)) / (2.0*(rightWheel - leftWheel)))*(sin(rads) - sin(previousRads));
@@ -245,7 +234,7 @@ int MainWindow::processThisRobot(TKobukiData robotdata)
 
 
         ///POLOHOVANIE
-        if(!mojRobot.stop && !mapovanie){
+        if(!mojRobot.stop/* && !mapovanie*/){
 
 
             if(!qyr.empty()){
@@ -258,7 +247,7 @@ int MainWindow::processThisRobot(TKobukiData robotdata)
             }*/
 
 
-            if((yr-y) ==0 && (xr-x)==0){
+            /*if((yr-y) ==0 && (xr-x)==0){
                 fi = rads;
             }else if((yr-y) >= 0){
                 fi = acos((xr-x)/(sqrt(pow((xr-x),2) + pow((yr-y),2) )));
@@ -269,7 +258,9 @@ int MainWindow::processThisRobot(TKobukiData robotdata)
 
             }else {
                 fi = (-6.283185/2)+atan((yr-y)/(xr-x));
-            }
+            }*/
+
+            fi = atan2(yr-y,xr-x);
 
             double e_fi = fi - rads;
             if(e_fi > (6.283185/2)){
@@ -280,6 +271,7 @@ int MainWindow::processThisRobot(TKobukiData robotdata)
 
 
             float e_pos =sqrt(pow((xr-x),2)+ pow((yr-y),2));
+            odchylka_pol = e_pos;
             float translation_reg = Pt * e_pos + 50;
             arc_reg = 100/e_fi;
             if(arc_reg == 0) arc_reg = 35000;
@@ -297,6 +289,7 @@ int MainWindow::processThisRobot(TKobukiData robotdata)
                     if(!qyr.empty()){
                         qyr.pop();
                         qxr.pop();
+                        mojRobot.numOfPoints = qxr.size();
 
                     }
                     mapovanie = true;
@@ -335,19 +328,19 @@ int MainWindow::processThisRobot(TKobukiData robotdata)
                 if(abs(e_fi) < 0.03) centered = true;
             }
     }else{
-            translation -= 40;
+            translation -= 50;
             if (translation < 0) translation = 0;
             robot.setArcSpeed(translation,arc_reg);
             printf("\nEMERGENCY STOP");
         }
 
-    if(mapovanie){
+   /* if(mapovanie){
         timer++;
         if(timer >= 120){
             mapovanie = false;
             timer = 0;
         }
-    }
+    }*/
 
 
 
@@ -360,6 +353,7 @@ int MainWindow::processThisRobot(TKobukiData robotdata)
     mojRobot.angle = rads;
     mojRobot.x = x;
     mojRobot.y = y;
+    mojRobot.translation = translation;
 
     return 0;
 
@@ -370,33 +364,17 @@ int MainWindow::processThisRobot(TKobukiData robotdata)
 int MainWindow::processThisLidar(LaserMeasurement laserData)
 {
     int i = 0;
-    double minScan = 10000;
-
-
+    LaserMeasurement prevCopyOfLaserData;
+    static int prevNumOfPoints = mojRobot.numOfPoints;
+    static float odchylkaCelkova = odchylka_pol;
     memcpy( &copyOfLaserData,&laserData,sizeof(LaserMeasurement));
-    //memcpy( &mojRobot.Data,&copyOfLaserData.Data,sizeof(copyOfLaserData.Data));
-    //mojRobot.Data = copyOfLaserData.Data;
-    //mojRobot.numberOfScans = copyOfLaserData.numberOfScans;
-    for(int k=0;k<copyOfLaserData.numberOfScans/*360*/;k++){
-        if(((copyOfLaserData.Data[k].scanDistance/1000) < 0.22) && (copyOfLaserData.Data[k].scanDistance/1000) != 0) i++;
 
-        if(minScan > (copyOfLaserData.Data[k].scanDistance/1000)) minScan = (copyOfLaserData.Data[k].scanDistance/1000);
-    }
-    //emit uiValuesChanged(0, 0, minScan/*e_fi/*rads*(180/pi1)*/);
-
-    if(i > 0){
-        //printf("\nstop");
-        mojRobot.stop = true;
-    }else mojRobot.stop = false;
-
-    ///
-    ///
-    memcpy( &copyOfLaserData,&laserData,sizeof(LaserMeasurement));
 
     const int gSize = 300;
     static int occ_grid[gSize][gSize];
     double pi1 = 3.14159265359;
     double rads, lidarAngle, calAngle;
+
     if(mojRobot.angle < 0){
         rads = mojRobot.angle + 6.283185;
     }else rads = mojRobot.angle;
@@ -404,42 +382,56 @@ int MainWindow::processThisLidar(LaserMeasurement laserData)
     int Xgi;
     int Ygi;
     double scanDist;
-    //emit uiValuesChanged(polohaX, polohaY,angle);
 
-    if(!mojRobot.moving){
+    if(mojRobot.translation != 0 && odchylka_pol > 0.5 && (odchylkaCelkova*0.97 < odchylka_pol)){
+
         for(int k=0;k<copyOfLaserData.numberOfScans;k++){
             scanDist = copyOfLaserData.Data[k].scanDistance / 1000;
-            lidarAngle = copyOfLaserData.Data[k].scanAngle * (pi1/180.0);
-            //if(lidarAngle > 6.283185/2) lidarAngle -= 6.283185;
-            calAngle = -rads + lidarAngle;
-            if(calAngle > 6.283185) calAngle -= 6.283185;
 
-            if(scanDist > 0){
-                Xgi = gSize/2 + (int)((mojRobot.x + scanDist*cos(calAngle))/0.05);
-                Ygi = gSize/2 + (int)((mojRobot.y - scanDist*sin(calAngle))/0.05);
+            if(((copyOfLaserData.Data[k].scanDistance/1000) < 0.23) && (copyOfLaserData.Data[k].scanDistance/1000) != 0) i++;
+
+
+            if((scanDist > 0.13) && (scanDist < 3.0) && !((scanDist < 0.7) && (scanDist > 0.62))){
+                lidarAngle = copyOfLaserData.Data[k].scanAngle * (pi1/180.0);
+                calAngle = rads - lidarAngle;
+                if(calAngle > 6.283185) calAngle -= 6.283185;
+                ///printf("MERAM");
+                Xgi = gSize/3 + (int)((mojRobot.x + scanDist*cos(calAngle))/0.05);
+                Ygi = gSize/3 + (int)((mojRobot.y + scanDist*sin(calAngle))/0.05);
                 occ_grid[Xgi][Ygi] = 1;
             }
         }
-
-
-        ofstream mapa("C:/Users/lukac/Desktop/RMR/GIT/mapa.txt");
-
-            // Write occupancy grid data to file
-            for (int i = 0; i < gSize; i++) {
-                for (int j = 0; j < gSize; j++) {
-                    mapa << occ_grid[j][i] << " ";
-                }
-                mapa << endl;
-            }
-
-        mapa.close();
     }
 
+        if(i > 0){
+            mojRobot.stop = true;
+        }else mojRobot.stop = false;
 
-    updateLaserPicture=1;
-    update();//tento prikaz prinuti prekreslit obrazovku.. zavola sa paintEvent funkcia
 
 
+        if(prevNumOfPoints != mojRobot.numOfPoints){
+            odchylkaCelkova = odchylka_pol;
+            ofstream mapa("C:/Users/lukac/Desktop/RMR/RMR2023/uloha3/mapa.txt");
+            ofstream occGrid("C:/Users/lukac/Desktop/RMR/RMR2023/uloha3/occGrid.txt");
+            printf("Zapisujem do mapy");
+            for (int i = 0; i < gSize; i++) {
+                for (int j = 0; j < gSize; j++) {
+                    occGrid << occ_grid[j][i];
+                    if(occ_grid[j][i] == 0){
+                        mapa << " ";
+                    }else mapa << "x";
+                }
+                occGrid << endl;
+                mapa << endl;
+            }
+            occGrid.close();
+            mapa.close();
+        }
+        prevNumOfPoints = mojRobot.numOfPoints;
+        updateLaserPicture=1;
+        update();
+
+    memcpy( &prevCopyOfLaserData,&laserData,sizeof(LaserMeasurement));
     return 0;
 
 }
@@ -468,7 +460,7 @@ void MainWindow::on_pushButton_9_clicked() //start button
     /// lambdy su super, setria miesto a ak su rozumnej dlzky,tak aj prehladnost... ak ste o nich nic nepoculi poradte sa s vasim doktorom alebo lekarnikom...
     robot.setLaserParameters(ipaddress,52999,5299,/*[](LaserMeasurement dat)->int{std::cout<<"som z lambdy callback"<<std::endl;return 0;}*/std::bind(&MainWindow::processThisLidar,this,std::placeholders::_1));
     robot.setRobotParameters(ipaddress,53000,5300,std::bind(&MainWindow::processThisRobot,this,std::placeholders::_1));
-    robot.setCameraParameters("http://"+ipaddress+":8000/stream.mjpg",std::bind(&MainWindow::processThisCamera,this,std::placeholders::_1));
+    robot.setCameraParameters("http://"+ipaddress+":8889/stream.mjpg",std::bind(&MainWindow::processThisCamera,this,std::placeholders::_1));
     /// 8000
     ///ked je vsetko nasetovane tak to tento prikaz spusti (ak nieco nieje setnute,tak to normalne nenastavi.cize ak napr nechcete kameru,vklude vsetky info o nej vymazte)
     robot.robotStart();

@@ -44,6 +44,7 @@ typedef struct
     MojeLaserData Data[1000];
     bool stop;
     bool moving;
+    int numOfPoints;
 
 }MojRobot;
 
@@ -98,8 +99,9 @@ private:
      Robot robot;
      TKobukiData robotdata;
      int datacounter;
+     float odchylka_pol;
      QTimer *timer;
-
+     MojRobot mojRobot;
      QJoysticks *instance;
 
      double forwardspeed;//mm/s
