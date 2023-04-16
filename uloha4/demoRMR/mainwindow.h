@@ -25,6 +25,29 @@
 #include "robot.h"
 
 #include <QJoysticks.h>
+
+typedef struct
+{
+    int scanQuality;
+    double scanAngle;
+    double scanDistance;
+}MojeLaserData;
+
+typedef struct
+{
+
+    float x;
+    float y;
+    float angle;
+    int translation;
+    int numberOfScans;
+    MojeLaserData Data[1000];
+    bool stop;
+    bool moving;
+    int numOfPoints;
+
+}MojRobot;
+
 namespace Ui {
 class MainWindow;
 }
@@ -76,9 +99,11 @@ private:
      Robot robot;
      TKobukiData robotdata;
      int datacounter;
+     float odchylka_pol;
      QTimer *timer;
-
+     MojRobot mojRobot;
      QJoysticks *instance;
+     std::vector<std::vector<char>> mapa;
 
      double forwardspeed;//mm/s
      double rotationspeed;//omega/s

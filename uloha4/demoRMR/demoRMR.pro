@@ -58,13 +58,8 @@ win32 {
 
 
 SOURCES += main.cpp\
-        mainwindow.cpp \
-        map_loader.cpp
+        mainwindow.cpp
 
-HEADERS  += mainwindow.h \
-    map_loader.h
+HEADERS  += mainwindow.h
 
 FORMS    += mainwindow.ui
-
-DISTFILES += \
-    priestor.txt

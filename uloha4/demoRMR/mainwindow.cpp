@@ -4,7 +4,11 @@
 #include <math.h>
 #include <iostream>
 #include <queue>
-#include "map_loader.h"
+#include <string>
+#include <vector>
+#include <fstream>
+
+
 
 ////Pavol Lukac & Denis Svec
 
@@ -15,8 +19,10 @@ MainWindow::MainWindow(QWidget *parent) :
 {
 
     //tu je napevno nastavena ip. treba zmenit na to co ste si zadali do text boxu alebo nejaku inu pevnu. co bude spravna
+    //ipaddress="192.168.1.14";
     ipaddress="127.0.0.1";
-            // 192.168.1.14
+            //
+    // 127.0.0.1
   //  cap.open("http://192.168.1.11:8000/stream.mjpg");
     ui->setupUi(this);
     datacounter=0;
@@ -104,30 +110,37 @@ int MainWindow::processThisRobot(TKobukiData robotdata)
     static double fi = 0;
     static float rads= 0;
     static int translation = 0;
+    static int prev_translation = 0;
+    static double arc_reg = 10000;
     //int rotation;
-    double Pr = 1.00;
+    double Pr = 2.8;
     int Pt = 500;
     static bool centered = false;
     double tTM = 0.000085292090497737556558;
     double diameter = 0.23;
+    static bool mapovanie = false;
+    static int timer = 0;
+    static float e_pos = 0;
     double pi1 = 3.14159265359;
-    //static float e_sum = 0;
+    double finish = 0.15;
 
-    if(start){
-        map_loader();
-        qxr.push(0.5);
-        qxr.push(1.0);
-        qxr.push(0.0);
-        qxr.push(0.2);
+    if(1){
+        int idx[2];
+        vector<vector<int>>::iterator it1;
+        vector<int>::iterator it2;
 
-        qyr.push(0.5);
-        qyr.push(0.5);
-        qyr.push(0.0);
-        qyr.push(1.0);
-        start = false;
+        for(it1 = mapa.begin();it1 != mapa.end();it1++){
+            for(it2 = it1->begin();it2 != it1->end();it2++)
+                if(it2 == "G"){
+                    idx[0] = it1;
+                    idx[1] = it2;
+                }
+
+        }
+
+
+
     }
-
-
 
 
 
@@ -137,8 +150,8 @@ int MainWindow::processThisRobot(TKobukiData robotdata)
 
 ///TU PISTE KOD... TOTO JE TO MIESTO KED NEVIETE KDE ZACAT,TAK JE TO NAOZAJ TU. AK AJ TAK NEVIETE, SPYTAJTE SA CVICIACEHO MA TU NATO STRING KTORY DA DO HLADANIA XXX
 
-  //  if(datacounter%5)
-    {
+
+
         if(abs(previousEncoderLeft - robotdata.EncoderLeft) > 10000){
            printf("\nLeft encoder pretec\n");
            if(previousEncoderLeft > robotdata.EncoderLeft){
@@ -157,21 +170,16 @@ int MainWindow::processThisRobot(TKobukiData robotdata)
         float rightWheel = tTM*(robotdata.EncoderRight - previousEncoderRight);
         float leftWheel = tTM*(robotdata.EncoderLeft - previousEncoderLeft);
 
-        /*odometerLeft += leftWheel;
-        odometerRight += rightWheel;*/
+        if((rightWheel != 0) || (leftWheel != 0)){
+            mojRobot.moving = true;
+        }else if((rightWheel == 0) && (leftWheel == 0)) mojRobot.moving = false;
 
 
         previousEncoderLeft = robotdata.EncoderLeft;
         previousEncoderRight = robotdata.EncoderRight;
 
-        //float rads = (robotdata.GyroAngle/100.0) * (pi1/180.0);
-
-        ///if(rads < 0) rads += 6.283185;
-        ///
-
         if(translation == 0){
             rads = (robotdata.GyroAngle/100.0) * (pi1/180.0);
-            //if(rads < 0) rads += 6.283185;
         }else {
             rads += (rightWheel - leftWheel)/diameter;
             if(rads > (6.283185/2)){
@@ -181,8 +189,7 @@ int MainWindow::processThisRobot(TKobukiData robotdata)
             }
         }
 
-
-        if((rightWheel - leftWheel) != 0){
+        if((rightWheel - leftWheel) != 0 && translation != 0){
             x += ((diameter*(rightWheel + leftWheel)) / (2.0*(rightWheel - leftWheel)))*(sin(rads) - sin(previousRads));
             y -= ((diameter*(rightWheel + leftWheel)) / (2.0*(rightWheel - leftWheel)))*(cos(rads) - cos(previousRads));
 
@@ -194,27 +201,25 @@ int MainWindow::processThisRobot(TKobukiData robotdata)
 
         previousRads = rads;
 
+        //printf("\n%d",mojRobot.stop);
+
 
         ///POLOHOVANIE
-        if(1){
+        if(!mojRobot.stop/* && !mapovanie*/){
+
 
             if(!qyr.empty()){
                 yr = qyr.front();
                 xr = qxr.front();
             }
 
+            /*if (qyr.size() > 1){
+                finish = 0.2;
+            }*/
 
-            if((yr-y) >= 0){
-                fi = acos((xr-x)/(sqrt(pow((xr-x),2) + pow((yr-y),2) )));
+            fi = atan2(yr-y,xr-x);
 
-            }else if((xr-y) >= 0){
-                fi = asin((yr-y)/(sqrt(pow((xr-x),2) + pow((yr-y),2) )));
-
-            }else{
-                fi = (-6.283185/2)+atan((yr-y)/(xr-x));
-            }
-
-            float e_fi = fi - rads;
+            double e_fi = fi - rads;
             if(e_fi > (6.283185/2)){
                 e_fi -= 6.283185;
             }else if(e_fi < (-6.283185/2)){
@@ -223,51 +228,81 @@ int MainWindow::processThisRobot(TKobukiData robotdata)
 
 
             float e_pos =sqrt(pow((xr-x),2)+ pow((yr-y),2));
-
-
-
+            odchylka_pol = e_pos;
             float translation_reg = Pt * e_pos + 50;
-            if(abs(e_fi) >= 0.4) centered = false;
+            arc_reg = 100/e_fi;
+            if(arc_reg == 0) arc_reg = 35000;
 
-            if((abs(e_fi) < 0.4) && centered){
 
-                if(translation_reg > 400){
-                    translation_reg = 400;
-                }
 
-                if(translation <= translation_reg){
-                    translation += 10;
-                }else if(translation > translation_reg) translation -= 20;
+            if(abs(e_fi) >= 0.2) centered = false;
 
-                if(translation > translation_reg) translation = translation_reg;
-                if(translation < 0) translation = 0;
+            if((abs(e_fi) < 0.2) && centered){
 
-                if(e_pos < 0.01){
+
+                if(e_pos < finish){
                     translation = 0;
+
                     if(!qyr.empty()){
                         qyr.pop();
                         qxr.pop();
+                        mojRobot.numOfPoints = qxr.size();
+
                     }
+                    mapovanie = true;
+                }else{
+
+                    if(translation_reg > 400){
+                        translation_reg = 400;
+                    }
+
+                    if(translation <= translation_reg){
+                        translation += 5;
+                    }else if(translation > translation_reg) translation -= 5;
+
+                    if(translation > translation_reg) translation = translation_reg;
+                    if(translation < 0) translation = 0;
                 }
 
-                if(abs(e_fi) < 0.01){
-                    robot.setArcSpeed(translation,0);
-                }else if(e_fi > 0){
-                    robot.setArcSpeed(translation,300);
-                }else if(e_fi < 0){
-                    robot.setArcSpeed(translation,-300);
-                }
+                robot.setArcSpeed(translation,arc_reg);
+
+
             }else{
+                translation -= 10;
+                if(translation < 0) translation = 0;
+                if(translation > 0) robot.setTranslationSpeed(translation);
 
-                robot.setRotationSpeed(Pr*e_fi);
-                if(abs(e_fi) < 0.025) centered = true;
+                if(translation == 0){
+                    double rotacia = Pr*e_fi;
+                     if(e_pos > finish){
+                        if(rotacia > 3.14159/3) rotacia = 3.14159/3;
+                        if(rotacia < -3.14159/3) rotacia = -3.14159/3;
+                        robot.setRotationSpeed(rotacia);
+                     }
+
+
+                }
+                if(abs(e_fi) < 0.03) centered = true;
             }
-    }
+    }else{
+            translation -= 50;
+            if (translation < 0) translation = 0;
+            robot.setArcSpeed(translation,arc_reg);
+            printf("\nEMERGENCY STOP");
+        }
 
-    emit uiValuesChanged(x, y, rads/*e_fi/*rads*(180/pi1)*/);
 
-    }
+
+    emit uiValuesChanged(e_pos, fi, rads/*e_fi/*rads*(180/pi1)*/);
+
+
     datacounter++;
+    prev_translation = translation;
+
+    mojRobot.angle = rads;
+    mojRobot.x = x;
+    mojRobot.y = y;
+    mojRobot.translation = translation;
 
     return 0;
 
@@ -277,13 +312,48 @@ int MainWindow::processThisRobot(TKobukiData robotdata)
 /// vola sa ked dojdu nove data z lidaru
 int MainWindow::processThisLidar(LaserMeasurement laserData)
 {
-
-
+    int i = 0;
+    static int prevNumOfPoints = mojRobot.numOfPoints;
+    static float odchylkaCelkova = odchylka_pol;
     memcpy( &copyOfLaserData,&laserData,sizeof(LaserMeasurement));
-    //tu mozete robit s datami z lidaru.. napriklad najst prekazky, zapisat do mapy. naplanovat ako sa prekazke vyhnut.
-    // ale nic vypoctovo narocne - to iste vlakno ktore cita data z lidaru
-    updateLaserPicture=1;
-    update();//tento prikaz prinuti prekreslit obrazovku.. zavola sa paintEvent funkcia
+
+
+    const int gSize = 300;
+    static int occ_grid[gSize][gSize];
+
+        for(int k=0;k<copyOfLaserData.numberOfScans;k++){
+
+            if(((copyOfLaserData.Data[k].scanDistance/1000) < 0.23) && (copyOfLaserData.Data[k].scanDistance/1000) != 0) i++;
+        }
+
+
+        if(i > 0){
+            mojRobot.stop = true;
+        }else mojRobot.stop = false;
+
+
+
+        /*if(prevNumOfPoints != mojRobot.numOfPoints){
+            odchylkaCelkova = odchylka_pol;
+            ofstream mapa("C:/Users/lukac/Desktop/RMR/RMR2023/uloha3/mapa.txt");
+            ofstream occGrid("C:/Users/lukac/Desktop/RMR/RMR2023/uloha3/occGrid.txt");
+            printf("Zapisujem do mapy");
+            for (int i = 0; i < gSize; i++) {
+                for (int j = 0; j < gSize; j++) {
+                    occGrid << occ_grid[j][i];
+                    if(occ_grid[j][i] == 0){
+                        mapa << " ";
+                    }else mapa << "x";
+                }
+                occGrid << endl;
+                mapa << endl;
+            }
+            occGrid.close();
+            mapa.close();
+        }*/
+
+        updateLaserPicture=1;
+        update();
 
 
     return 0;
@@ -304,6 +374,22 @@ int MainWindow::processThisCamera(cv::Mat cameraData)
 }
 void MainWindow::on_pushButton_9_clicked() //start button
 {
+    std::string eachrow;
+
+    std::ifstream myfile("C:\Users\lukac\Desktop\RMR\RMR2023\uloha4\occGrid.txt");
+
+    while (std::getline(myfile, eachrow))
+    {
+        std::vector<char> row;
+
+        for (char &x : eachrow)
+        {
+            if (x != ' ')row.push_back(x);
+        }
+
+        mapa.push_back(row);
+    }
+    mapa[100][100] = "S";
 
     forwardspeed=0;
     rotationspeed=0;
