@@ -123,20 +123,76 @@ int MainWindow::processThisRobot(TKobukiData robotdata)
     static float e_pos = 0;
     double pi1 = 3.14159265359;
     double finish = 0.15;
+    static bool test1 = true;
 
-    if(1){
+    if(test1){
         int idx[2];
-        vector<vector<int>>::iterator it1;
-        vector<int>::iterator it2;
 
-        for(it1 = mapa.begin();it1 != mapa.end();it1++){
-            for(it2 = it1->begin();it2 != it1->end();it2++)
-                if(it2 == "G"){
-                    idx[0] = it1;
-                    idx[1] = it2;
+        for (int i = 0; i < mapa.size(); i++)
+        {
+            for (int j = 0; j < mapa[i].size(); j++)
+            {
+                if(mapa[i][j] == 'G'){
+                    idx[0] = i;
+                    idx[1] = j;
+                }
+            }
+        }
+
+        int step = 1;
+
+
+        while(step < 10){
+
+            /*(int i = 0; i < (2+step); i++){
+
+                if( vectorExist(idx[0]-step, idx[1]-step-i)  ){
+                    if(mapa[idx[0]-step][idx[1]-step-i] != '1')mapa[idx[0]-step][idx[1]-step-i] = '2';
                 }
 
+            }*/
+
+            /*for(int i = 0; i < (2+step); i++){
+
+                if(vectorExist(idx[0]-step+i, idx[1]+step)){
+                    if(mapa[idx[0]-step+i][idx[1]+step] != '1')mapa[idx[0]-step+i][idx[1]+step] = '2';
+                }
+
+            }*/
+
+            /*for(int i = 0; i < (2+step); i++){
+
+                if(vectorExist(idx[0]+step, idx[1]-step+i)){
+                    if(mapa[idx[0]+step][idx[1]-step+i] != '1')mapa[idx[0]+step][idx[1]-step+i] = '2';
+                }
+
+            }*/
+
+            for(int i = 0; i < (2+step); i++){
+
+                if(vectorExist(idx[0]+step-i, idx[1]+step)){
+                    if( mapa[(idx[0]+step-i)][(idx[1]+step+10)] != '1')mapa[idx[0]+step-i][idx[1]+step] = '2';
+                }
+
+            }
+
+            step++;
+
+
+
         }
+
+        ofstream occGridALG("C:/Users/lukac/Desktop/RMR/RMR2023/uloha4/occGridALG.txt");
+        printf("Zapisujem do mapy");
+        for (int i = 0; i < mapa.size(); i++) {
+            for (int j = 0; j < mapa[0].size(); j++) {
+                occGridALG << mapa[j][i];
+            }
+            occGridALG << endl;
+        }
+        occGridALG.close();
+
+        test1=false;
 
 
 
@@ -376,7 +432,7 @@ void MainWindow::on_pushButton_9_clicked() //start button
 {
     std::string eachrow;
 
-    std::ifstream myfile("C:\Users\lukac\Desktop\RMR\RMR2023\uloha4\occGrid.txt");
+    std::ifstream myfile("C:/Users/lukac/Desktop/RMR/RMR2023/uloha4/occGrid_ideal.txt");
 
     while (std::getline(myfile, eachrow))
     {
@@ -389,7 +445,7 @@ void MainWindow::on_pushButton_9_clicked() //start button
 
         mapa.push_back(row);
     }
-    mapa[100][100] = "S";
+    mapa[100][100] = 'S';
 
     forwardspeed=0;
     rotationspeed=0;
@@ -473,5 +529,12 @@ void MainWindow::on_pushButton_clicked()
 
 void MainWindow::getNewFrame()
 {
+
+}
+
+bool MainWindow::vectorExist(int x, int y){
+    if(x < mapa[0].size() && x >= 0 && y < mapa.size() && y >= 0){
+        return true;
+    }else return false;
 
 }

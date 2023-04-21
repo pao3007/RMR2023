@@ -88,6 +88,7 @@ private slots:
 
     void on_pushButton_clicked();
     void getNewFrame();
+    bool vectorExist(int x, int y);
 
 private:
      JOYINFO joystickInfo;
@@ -114,6 +115,8 @@ signals:
 
 
 };
+
+
 
 /*#define tTM 0.000085292090497737556558
 #define diameter 0.23
