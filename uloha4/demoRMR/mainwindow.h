@@ -46,6 +46,7 @@ typedef struct
     Index current;
 }Alg;
 
+
 typedef struct
 {
 
@@ -118,18 +119,20 @@ private:
      MojRobot mojRobot;
      QJoysticks *instance;
      std::vector<std::vector<char>> mapa;
+     vector<Index> path;
+     vector<Index> pathPoints;
 
      double forwardspeed;//mm/s
      double rotationspeed;//omega/s
      int offset[8][2] = {
-                                                 {-1, -1},
-                                                 {-1, 0},
-                                                 {-1, 1},
-                                                 {0, -1},
-                                                 {0, 1},
-                                                 {1, -1},
-                                                 {1, 0},
-                                                 {1, 1}
+         {1, 0},
+         {0, 1},
+         {-1, 0},
+         {0, -1},
+         {-1, -1},
+         {-1, 1},
+         {1, -1},
+         {1, 1}
                                               };
 
 public slots:

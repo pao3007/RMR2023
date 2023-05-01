@@ -125,7 +125,9 @@ int MainWindow::processThisRobot(TKobukiData robotdata)
     double finish = 0.15;
     static bool test1 = true;
 
+
     if(test1){
+        printf("IDEM0\n");
         int algMapa[300][300] = {0};
 
 
@@ -184,36 +186,116 @@ int MainWindow::processThisRobot(TKobukiData robotdata)
             mapa[alg.current.x][alg.current.y] = 'v';
             algMapa[alg.current.x][alg.current.y] = min+1;
             ///std::cout<<mapa[alg.current.x][alg.current.y]<<std::endl;
-            test++;
+
             //std::cout<<test<<std::endl;
+        }
+
+        Index smallestIndex;
+        int min = algMapa[100][100];
+        alg.current.x = 100;
+        alg.current.y = 100;
+        bool end = false;
+        int test0 = 0;
+        while(!end){
+
+            for (int k = 0; k < 8; k++)
+            {
+                int indexX = alg.current.x + offset[k][0];
+                int indexY = alg.current.y + offset[k][1];
+                if(indexX < 300 && indexX >= 0 && indexY < 300 && indexY >= 0){
+                    if(algMapa[indexX][indexY]<min && algMapa[indexX][indexY] > 0){
+
+                        min = algMapa[indexX][indexY];
+                        smallestIndex.x = indexX;
+                        smallestIndex.y = indexY;
+
+                    }
+
+                }
+
+            }
+            alg.current.x = smallestIndex.x;
+            alg.current.y = smallestIndex.y;
+            path.push_back(smallestIndex);
+            cout << algMapa[smallestIndex.x][smallestIndex.y] << endl;
+            if(algMapa[smallestIndex.x][smallestIndex.y] < 3) end = true;
+
+        }
+        Index prevIdx = path.front();
+        Index prevSmer;
+
+        prevSmer.x = 0;
+        prevSmer.y = 0;
+
+        for(int k = 0; k < path.size();k++){
+
+            int dx = path[k].x - prevIdx.x;
+            int dy = path[k].y - prevIdx.y;
+            if(prevSmer.x != dx && prevSmer.y != dy){
+               pathPoints.push_back(path[k]);
+            }
+            prevSmer.x = dx;
+            prevSmer.y = dy;
+
         }
 
 
 
-
-
-
-
-        ///ofstream occGridALG("C:/Users/lukac/Desktop/RMR/RMR2023/uloha4/occGridALG.txt");
-        ofstream occGridALG("C:/Users/pao/Desktop/RMR/RMR2023/uloha4/occGridALG.txt");
+        //////////////////
+        ofstream occGridALG("C:/Users/lukac/Desktop/RMR/RMR2023/uloha4/occGridALG.txt");
+        ofstream occGridALG2("C:/Users/lukac/Desktop/RMR/RMR2023/uloha4/occGridALG2.txt");
+        ///ofstream occGridALG("C:/Users/pao/Desktop/RMR/RMR2023/uloha4/occGridALG.txt");
         printf("Zapisujem do mapy");
+
         for (int i = 0; i < mapa.size(); i++) {
             for (int j = 0; j < mapa[0].size(); j++) {
-                /*if(algMapa[i][j] == 0){
-                     occGridALG << "0" << " ";
-                }else if(algMapa[i][j] < 10){
-                     occGridALG << "00" << algMapa[i][j] << " ";
-                }else if(algMapa[i][j] < 10){
-                    occGridALG << "0" << algMapa[i][j] << " ";
-                }else occGridALG << algMapa[i][j] << " ";*/
-                occGridALG << mapa[i][j];
+
+
+                bool pathWriten = false;
+
+                for(int k = 0; k < pathPoints.size();k++){
+                    if(pathPoints[k].x == i && pathPoints[k].y == j){
+                        occGridALG << 'T';
+                        pathWriten = true;
+                        ///path.erase(path.begin() + k);
+                    }
+                    if(pathWriten){
+                        break;
+                    }
+
+                }
+
+
+                for(int k = 0; k < path.size();k++){
+                    if(pathWriten){
+                        break;
+                    }
+                    if(path[k].x == i && path[k].y == j){
+                        occGridALG << 'X';
+                        pathWriten = true;
+                        ///path.erase(path.begin() + k);
+                    }
+
+                }
+
+
+                if(!pathWriten) occGridALG << mapa[i][j];
+
+                if(algMapa[i][j] > 2){
+
+                    occGridALG2 << 'U';
+                }else occGridALG2 << algMapa[i][j];
+
+                ///std::cout << i << ":" << j << " = " << algMapa[i][j] << std::endl;
 
 
 
             }
             occGridALG << endl;
+            occGridALG2 << endl;
         }
         occGridALG.close();
+        occGridALG2.close();
 
         test1=false;
 
@@ -412,25 +494,6 @@ int MainWindow::processThisLidar(LaserMeasurement laserData)
 
 
 
-        /*if(prevNumOfPoints != mojRobot.numOfPoints){
-            odchylkaCelkova = odchylka_pol;
-            ofstream mapa("C:/Users/lukac/Desktop/RMR/RMR2023/uloha3/mapa.txt");
-            ofstream occGrid("C:/Users/lukac/Desktop/RMR/RMR2023/uloha3/occGrid.txt");
-            printf("Zapisujem do mapy");
-            for (int i = 0; i < gSize; i++) {
-                for (int j = 0; j < gSize; j++) {
-                    occGrid << occ_grid[j][i];
-                    if(occ_grid[j][i] == 0){
-                        mapa << " ";
-                    }else mapa << "x";
-                }
-                occGrid << endl;
-                mapa << endl;
-            }
-            occGrid.close();
-            mapa.close();
-        }*/
-
         updateLaserPicture=1;
         update();
 
@@ -455,8 +518,8 @@ void MainWindow::on_pushButton_9_clicked() //start button
 {
     std::string eachrow;
 
-    ///std::ifstream myfile("C:/Users/lukac/Desktop/RMR/RMR2023/uloha4/occGrid_ideal.txt");
-    std::ifstream myfile("C:/Users/pao/Desktop/RMR/RMR2023/uloha4/occGrid_ideal.txt");
+    std::ifstream myfile("C:/Users/lukac/Desktop/RMR/RMR2023/uloha4/occGrid_ideal.txt");
+    ///std::ifstream myfile("C:/Users/pao/Desktop/RMR/RMR2023/uloha4/occGrid_ideal.txt");
 
     while (std::getline(myfile, eachrow))
     {
@@ -469,7 +532,6 @@ void MainWindow::on_pushButton_9_clicked() //start button
 
         mapa.push_back(row);
     }
-    mapa[100][100] = 'S';
 
     for(int k = 0; k < 3; k++){
         for (int i = 0; i < mapa.size(); i++)
