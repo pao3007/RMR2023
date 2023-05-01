@@ -115,15 +115,20 @@ int MainWindow::processThisRobot(TKobukiData robotdata)
     //int rotation;
     double Pr = 2.8;
     int Pt = 500;
-    static bool centered = false;
+    static bool centered = true;
     double tTM = 0.000085292090497737556558;
     double diameter = 0.23;
     static bool mapovanie = false;
     static int timer = 0;
     static float e_pos = 0;
     double pi1 = 3.14159265359;
-    double finish = 0.15;
+    double finish = 0.025;
     static bool test1 = true;
+
+    /*if(test1){
+        qyr.push(0);qxr.push(2);
+        test1 = false;
+    }*/
 
 
     if(test1){
@@ -195,7 +200,7 @@ int MainWindow::processThisRobot(TKobukiData robotdata)
         alg.current.x = 100;
         alg.current.y = 100;
         bool end = false;
-        int test0 = 0;
+
         while(!end){
 
             for (int k = 0; k < 8; k++)
@@ -217,7 +222,7 @@ int MainWindow::processThisRobot(TKobukiData robotdata)
             alg.current.x = smallestIndex.x;
             alg.current.y = smallestIndex.y;
             path.push_back(smallestIndex);
-            cout << algMapa[smallestIndex.x][smallestIndex.y] << endl;
+            ///cout << algMapa[smallestIndex.x][smallestIndex.y] << endl;
             if(algMapa[smallestIndex.x][smallestIndex.y] < 3) end = true;
 
         }
@@ -231,20 +236,72 @@ int MainWindow::processThisRobot(TKobukiData robotdata)
 
             int dx = path[k].x - prevIdx.x;
             int dy = path[k].y - prevIdx.y;
-            if(prevSmer.x != dx && prevSmer.y != dy){
-               pathPoints.push_back(path[k]);
+             cout << "dx: " << dx << " x : " << prevSmer.x << " | dy: " << dy << " y: " << prevSmer.y;
+            if(prevSmer.x != dx || prevSmer.y != dy){
+               Index addThis;
+               addThis.x = prevIdx.x;
+               addThis.y = prevIdx.y;
+               if(pathPoints.size() > 1){
+                   int pk = pathPoints.size()-1;
+                   Index test;
+                   test.x = pathPoints[pk].x - addThis.x;
+                   test.y = pathPoints[pk].y - addThis.y;
+                   if(test.x < 2 && test.x > (-2) && test.y < 2 && test.y > (-2)){
+                       if(mapa[pathPoints[pk].x][(pathPoints[pk].y + 1)] == 'v' && mapa[addThis.x][(addThis.y-1)] == '1'){
+                           addThis.x = pathPoints[pk].x;
+                           addThis.y = (pathPoints[pk].y + 1);
+                       }else if(mapa[pathPoints[pk].x][(pathPoints[pk].y - 1)] == 'v' && mapa[addThis.x][(addThis.y+1)] == '1'){
+                           addThis.x = pathPoints[pk].x;
+                           addThis.y = (pathPoints[pk].y - 1);
+                       }else if(mapa[pathPoints[pk].x+1][(pathPoints[pk].y)] == 'v' && mapa[addThis.x-1][addThis.y] == '1'){
+                           addThis.x = (pathPoints[pk].x+1);
+                           addThis.y = pathPoints[pk].y;
+                       }else if(mapa[(pathPoints[pk].x-1)][(pathPoints[pk].y)] == 'v' && mapa[(addThis.x+1)][addThis.y] == '1'){
+                           addThis.x = (pathPoints[pk].x-1);
+                           addThis.y = pathPoints[pk].y;
+                       }
+                       pathPoints.erase(pathPoints.begin()+pk);
+
+                   }
+
+               }
+               pathPoints.push_back(addThis);
+
+               cout << " => TARGET";
             }
+            cout << endl;
+            prevIdx.x = path[k].x;
+            prevIdx.y = path[k].y;
             prevSmer.x = dx;
             prevSmer.y = dy;
 
         }
+        Index addThis;
+        addThis.x = idx[0];
+        addThis.y = idx[1];
+        pathPoints.push_back(addThis);
+        pathPoints.erase(pathPoints.begin());
 
+        float cellSize = 0.05;
+        Index start;
+        start.x = 102;
+        start.y = 100;
+        for(int i = 0; i < pathPoints.size();i++){
+           double testX = pathPoints[i].x*cellSize-start.x*cellSize;
+           double testY = pathPoints[i].y*cellSize-start.y*cellSize;
+           cout << testX << " | " << testY << endl;
+           qyr.push(testX);
+           qxr.push(testY);
+
+
+        }
 
 
         //////////////////
-        ofstream occGridALG("C:/Users/lukac/Desktop/RMR/RMR2023/uloha4/occGridALG.txt");
-        ofstream occGridALG2("C:/Users/lukac/Desktop/RMR/RMR2023/uloha4/occGridALG2.txt");
-        ///ofstream occGridALG("C:/Users/pao/Desktop/RMR/RMR2023/uloha4/occGridALG.txt");
+        ///ofstream occGridALG("C:/Users/lukac/Desktop/RMR/RMR2023/uloha4/occGridALG.txt");
+        ///ofstream occGridALG2("C:/Users/lukac/Desktop/RMR/RMR2023/uloha4/occGridALG2.txt");
+        ofstream occGridALG("C:/Users/pao/Desktop/RMR/RMR2023/uloha4/occGridALG.txt");
+         ofstream occGridALG2("C:/Users/pao/Desktop/RMR/RMR2023/uloha4/occGridALG2.txt");
         printf("Zapisujem do mapy");
 
         for (int i = 0; i < mapa.size(); i++) {
@@ -367,7 +424,7 @@ int MainWindow::processThisRobot(TKobukiData robotdata)
 
         ///POLOHOVANIE
         if(!mojRobot.stop/* && !mapovanie*/){
-
+           /// cout << "POLOHOVANIE" << endl;
 
             if(!qyr.empty()){
                 yr = qyr.front();
@@ -388,11 +445,16 @@ int MainWindow::processThisRobot(TKobukiData robotdata)
             }
 
 
-            float e_pos =sqrt(pow((xr-x),2)+ pow((yr-y),2));
+            float e_pos =sqrt(pow((xr-x),2)+pow((yr-y),2));
             odchylka_pol = e_pos;
             float translation_reg = Pt * e_pos + 50;
-            arc_reg = 100/e_fi;
-            if(arc_reg == 0) arc_reg = 35000;
+            if(e_fi != 0){
+                arc_reg = 100/e_fi;
+                if(arc_reg > 35000) arc_reg = 35000;
+            }else arc_reg = 35000;
+
+
+
 
 
 
@@ -454,7 +516,7 @@ int MainWindow::processThisRobot(TKobukiData robotdata)
 
 
 
-    emit uiValuesChanged(e_pos, fi, rads/*e_fi/*rads*(180/pi1)*/);
+    emit uiValuesChanged(x, y, rads/*e_fi/*rads*(180/pi1)*/);
 
 
     datacounter++;
@@ -482,21 +544,21 @@ int MainWindow::processThisLidar(LaserMeasurement laserData)
     const int gSize = 300;
     static int occ_grid[gSize][gSize];
 
-        for(int k=0;k<copyOfLaserData.numberOfScans;k++){
+    for(int k=0;k<copyOfLaserData.numberOfScans;k++){
 
-            if(((copyOfLaserData.Data[k].scanDistance/1000) < 0.23) && (copyOfLaserData.Data[k].scanDistance/1000) != 0) i++;
-        }
-
-
-        if(i > 0){
-            mojRobot.stop = true;
-        }else mojRobot.stop = false;
+        if(((copyOfLaserData.Data[k].scanDistance/1000) < 0.23) && (copyOfLaserData.Data[k].scanDistance/1000) != 0) i++;
+       ///if(copyOfLaserData.Data[k].scanAngle > 88 && copyOfLaserData.Data[k].scanAngle < 92) cout << copyOfLaserData.Data[k].scanDistance/1000 << endl;
+    }
 
 
+    if(i > 0){
+        mojRobot.stop = true;
+    }else mojRobot.stop = false;
 
-        updateLaserPicture=1;
-        update();
 
+
+    updateLaserPicture=1;
+    update();
 
     return 0;
 
@@ -518,8 +580,8 @@ void MainWindow::on_pushButton_9_clicked() //start button
 {
     std::string eachrow;
 
-    std::ifstream myfile("C:/Users/lukac/Desktop/RMR/RMR2023/uloha4/occGrid_ideal.txt");
-    ///std::ifstream myfile("C:/Users/pao/Desktop/RMR/RMR2023/uloha4/occGrid_ideal.txt");
+    ///std::ifstream myfile("C:/Users/lukac/Desktop/RMR/RMR2023/uloha4/occGrid_ideal.txt");
+    std::ifstream myfile("C:/Users/pao/Desktop/RMR/RMR2023/uloha4/occGrid_ideal.txt");
 
     while (std::getline(myfile, eachrow))
     {
@@ -533,7 +595,7 @@ void MainWindow::on_pushButton_9_clicked() //start button
         mapa.push_back(row);
     }
 
-    for(int k = 0; k < 3; k++){
+    for(int k = 0; k < 6; k++){
         for (int i = 0; i < mapa.size(); i++)
         {
             for (int j = 0; j < mapa[i].size(); j++)
