@@ -65,7 +65,6 @@ public:
 
     void setCameraParameters(std::string link,std::function<int(cv::Mat)> callback )
     {
-
         camera_link=link;
         camera_callback=callback;
         wasCameraSet=1;

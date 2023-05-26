@@ -4,12 +4,20 @@
 #include <math.h>
 #include <iostream>
 #include <queue>
+#include <thread>
+#include <chrono>
+
+
 ////Pavol Lukac & Denis Svec
 
-static float x_pos = 0, y_pos = 0;
+static double x_pos = 0, y_pos = 0;
 static queue<double> qxr, qyr;
-static float yr = 0, xr = 0;
-static float finish_X = 5, finish_Y = 5;
+static double yr = 0, xr = 0;
+static double finish_X = 4.6, finish_Y = 1.8;
+
+
+
+//LIDAR K coord 1,70,140,210 counter clockwise;
 
 MainWindow::MainWindow(QWidget *parent) :
     QMainWindow(parent),
@@ -75,7 +83,7 @@ void MainWindow::paintEvent(QPaintEvent *event)
                 int dist=copyOfLaserData.Data[k].scanDistance/20; ///vzdialenost nahodne predelena 20 aby to nejako vyzeralo v okne.. zmen podla uvazenia
                 int xp=rect.width()-(rect.width()/2+dist*2*sin((360.0-copyOfLaserData.Data[k].scanAngle)*3.14159/180.0))+rect.topLeft().x(); //prepocet do obrazovky
                 int yp=rect.height()-(rect.height()/2+dist*2*cos((360.0-copyOfLaserData.Data[k].scanAngle)*3.14159/180.0))+rect.topLeft().y();//prepocet do obrazovky
-                if(rect.contains(xp,yp))//ak je bod vo vnutri nasho obdlznika tak iba vtedy budem chciet kreslit
+                if(rect.contains(xp,yp) )//ak je bod vo vnutri nasho obdlznika tak iba vtedy budem chciet kreslit
                     painter.drawEllipse(QPoint(xp, yp),2,2);
 
 
@@ -94,40 +102,179 @@ void  MainWindow::setUiValues(double robotX,double robotY,double robotFi)
      ui->lineEdit_3->setText(QString::number(robotY));
      ui->lineEdit_4->setText(QString::number(robotFi));
 }
+//int MainWindow::robotErrorDetection(TKobukiData robotdata){
 
+
+
+//    std::printf("Thred1 \n");
+//    return 0;
+//}
 ///toto je calback na data z robota, ktory ste podhodili robotu vo funkcii on_pushButton_9_clicked
 /// vola sa vzdy ked dojdu nove data z robota. nemusite nic riesit, proste sa to stane
+///
+///
+///
+//void MainWindow::robotStagnationDetection(double xx1, double yy1){
+
+//    location_vecto_x.push_back(xx1);
+//    location_vecto_y.push_back(yy1);
+//    float average = 0.0;
+//    bool same_x= false;
+
+//    if(location_vecto_x.size() >= 20){
+//        for (const float& value : location_vecto_x) {
+//            average += value;
+//            //std::printf("%f - stop detection\n", value);
+//              }
+//              average /= location_vecto_x.size();
+
+//                // Check if all values are close to the average within the given tolerance
+//                for (float value : location_vecto_x) {
+//                    if (std::abs(value - average) == 0.0) {
+
+//                        same_x = true;
+//                        std::printf("GOT HERE\n");
+//                    }
+//                }
+//                if(same_x && average != 0){
+//                    average = 0.0;
+//                for (float value : location_vecto_y) {
+//                    average += value;
+//                      }
+//                      average /= location_vecto_y.size();
+
+//                        // Check if all values are close to the average within the given tolerance
+//                        for (float value : location_vecto_y) {
+//                            if (std::abs(value - average) == 0.0) {
+//                                location_vecto_y.clear();
+//                                location_vecto_x.clear();
+//                                std::printf("STOOOOOOOOP\n");
+//                                stuck= true;
+//                            }
+//                        }
+//                }
+//                location_vecto_y.clear();
+//                location_vecto_x.clear();
+//        }
+
+//    std::this_thread::sleep_for(std::chrono::milliseconds(500));
+
+// }
+
+float calculateHypotenuse(float side1, float side2) {
+    return std::sqrt(std::pow(side1, 2) + std::pow(side2, 2));
+}
+
+//bool crossProduct(float startPos_x, float startPos_y, float currentPos_x, float currentPos_y, float finalPos_x, float finalPos_y){
+//    float x1 = currentPos_x - startPos_x;
+//    float y1 = currentPos_y - startPos_y;
+//    float x2 = finalPos_x - startPos_x;
+//    float y2 = finalPos_y - startPos_y;
+//    float cross = x1 * y2 - y1 * x2;
+
+//    std::printf("%f -cross \n", cross);
+//    if (std::abs(cross) <= 0.05){
+//        return true;
+//    }else{
+//        return false;
+//    }
+
+//}
+//void  MainWindow::ramp(double amp, bool forward_go){
+
+//    if(forward_go){ //move
+//        if(amp == 1){ //move forward
+//            amp = 0;
+//            while (amp <= 1){
+
+//                       amp += 0.02;
+
+//                       robot.setTranslationSpeed(200*amp);
+//            }
+//        }else{ //move backword
+//            amp = 0;
+//            while (amp >= -1){
+
+//                       amp -= 0.02;
+
+//                       robot.setTranslationSpeed(200*amp);
+//            }
+
+
+//        }
+//    }else{ //stop
+//        if(amp == 1){ //forward stop
+
+//            while (amp >= 0){
+
+//                       amp -= 0.02;
+
+//                       robot.setTranslationSpeed(200*amp);
+//            }
+//        }else{ //move backword
+
+//            while (amp <= 0){
+
+//                       amp += 0.02;
+
+//                       robot.setTranslationSpeed(200*amp);
+//            }
+//        }
+
+//    }
+
+//}
+
+
 int MainWindow::processThisRobot(TKobukiData robotdata)
 {
+    static int Front_back_det = 1;
+    static float distance_to_finish = 0.5;
     static bool start = true;
+    static bool distance_count = false;
+    static bool switch_go = false;
+    static bool stuck = false;
+    static bool step_one = false;
+    static int bump_count = 0;
+//    static bool step_two = false;
     static int previousEncoderLeft = robotdata.EncoderLeft, previousEncoderRight = robotdata.EncoderRight;
     ///static double odometerLeft, odometerRight = 0;
 
     static float previousRads = 0;
-    float x = 0, y = 0;
-    static double fi = 0;
+    static float distance_travelled =0;
+    static float temp_distance =0;
     static float rads= 0;
-    static int translation = 0;
+//    static bool bug2 = false;
     //int rotation;
-    double Pr = 1.00;
-    int Pt = 500;
-    static bool centered = false;
-    double tTM = 0.000085292090497737556558;
-    double diameter = 0.23;
-    double pi1 = 3.14159265359;
-    //static float e_sum = 0;
+    static float x = 0, y = 0;
+    static float last_movex = 0, last_movey = 0;
 
+    static int speed = 300;
+    static float side_distance = 0.6;
+    static double tTM = 0.000085292090497737556558;
+
+    static double pi1 = 3.14159265359;
+    double ramp_dor =1;
+    //static float e_sum = 0;
+    double diameter = 0.23;
     QRect rect;
     rect= ui->frame->geometry();//ziskate porametre stvorca,do ktoreho chcete kreslit
     rect.translate(0,15);
 
+    static double cloud[360][3];
+    int side_int = 1;
+
+
+    int scale = 1000;
+
 
     //body kde ma ist robot
     if(start){
-        qxr.push(finish_X);
 
-        qyr.push(finish_Y);
+         qxr.push(4.6);
 
+
+         qyr.push(1.8);
         start = false;
     }
 
@@ -135,147 +282,502 @@ int MainWindow::processThisRobot(TKobukiData robotdata)
 
 
 
+    if(abs(previousEncoderLeft - robotdata.EncoderLeft) > 10000){
+       printf("\nLeft encoder pretec\n");
+       if(previousEncoderLeft > robotdata.EncoderLeft){
+           previousEncoderLeft -= 65535;
+       }else if(previousEncoderLeft < robotdata.EncoderLeft) previousEncoderLeft += 65535;
+
+    }
+    if(abs(previousEncoderRight - robotdata.EncoderRight) > 10000){
+       printf("\nRight encoder pretec\n");
+       if(previousEncoderRight > robotdata.EncoderRight){
+           previousEncoderRight -= 65535;
+       }else if(previousEncoderRight < robotdata.EncoderRight) previousEncoderRight += 65535;
+
+    }
+
+    float rightWheel = tTM*(robotdata.EncoderRight - previousEncoderRight);
+    float leftWheel = tTM*(robotdata.EncoderLeft - previousEncoderLeft);
+
+    if((rightWheel != 0) || (leftWheel != 0)){
+        mojRobot.moving = true;
+    }else if((rightWheel == 0) && (leftWheel == 0)) mojRobot.moving = false;
+
+
+    previousEncoderLeft = robotdata.EncoderLeft;
+    previousEncoderRight = robotdata.EncoderRight;
 
 
 
-
-///TU PISTE KOD... TOTO JE TO MIESTO KED NEVIETE KDE ZACAT,TAK JE TO NAOZAJ TU. AK AJ TAK NEVIETE, SPYTAJTE SA CVICIACEHO MA TU NATO STRING KTORY DA DO HLADANIA XXX
-
-  //  if(datacounter%5)
-    {
-        if(abs(previousEncoderLeft - robotdata.EncoderLeft) > 10000){
-           printf("\nLeft encoder pretec\n");
-           if(previousEncoderLeft > robotdata.EncoderLeft){
-               previousEncoderLeft -= 65535;
-           }else if(previousEncoderLeft < robotdata.EncoderLeft) previousEncoderLeft += 65535;
-
+        rads += (rightWheel - leftWheel)/diameter;
+        if(rads > (6.283185/2)){
+            rads = -(6.283185/2) + (rads-(6.283185/2));
+        }else if(rads < -(6.283185/2)){
+            rads = (6.283185/2) + (rads + (6.283185/2));
         }
-        if(abs(previousEncoderRight - robotdata.EncoderRight) > 10000){
-           printf("\nRight encoder pretec\n");
-           if(previousEncoderRight > robotdata.EncoderRight){
-               previousEncoderRight -= 65535;
-           }else if(previousEncoderRight < robotdata.EncoderRight) previousEncoderRight += 65535;
 
-        }
-
-        float rightWheel = tTM*(robotdata.EncoderRight - previousEncoderRight);
-        float leftWheel = tTM*(robotdata.EncoderLeft - previousEncoderLeft);
-
-        /*odometerLeft += leftWheel;
-        odometerRight += rightWheel;*/
+        x +=  ((rightWheel + leftWheel)/2.0)*cos(rads);
+        y += ((rightWheel + leftWheel)/2.0)*sin(rads);
 
 
-        previousEncoderLeft = robotdata.EncoderLeft;
-        previousEncoderRight = robotdata.EncoderRight;
+    //printf("\n%d",mojRobot.stop);
 
-        //float rads = (robotdata.GyroAngle/100.0) * (pi1/180.0);
-
-        ///if(rads < 0) rads += 6.283185;
-        ///
-
-        if(translation == 0){
-            rads = (robotdata.GyroAngle/100.0) * (pi1/180.0);
-            //if(rads < 0) rads += 6.283185;
-        }else {
-            rads += (rightWheel - leftWheel)/diameter;
-            if(rads > (6.283185/2)){
-                rads = -(6.283185/2) + (rads-(6.283185/2));
-            }else if(rads < -(6.283185/2)){
-                rads = (6.283185/2) + (rads + (6.283185/2));
-            }
-        }
-// tu su polohy robota a natocenie robota
-
-        if((rightWheel - leftWheel) != 0){
-            x += ((diameter*(rightWheel + leftWheel)) / (2.0*(rightWheel - leftWheel)))*(sin(rads) - sin(previousRads));
-            y -= ((diameter*(rightWheel + leftWheel)) / (2.0*(rightWheel - leftWheel)))*(cos(rads) - cos(previousRads));
-
-        }else{
-            x += ((rightWheel + leftWheel)/2.0)*cos(rads);
-            y += ((rightWheel + leftWheel)/2.0)*sin(rads);
-
-        }
+        //std::printf("%f - x\n", x);
+        //std::printf("%f - y\n", y);
         x_pos = x;
         y_pos = y;
         previousRads = rads;
 
 
+        emit uiValuesChanged(x, y, previousRads);
 
         ///POLOHOVANIE
 
+        //pridat rampovanie s HMI
+        //Pridat detekciu finalneho bodu
+        //Pridat opravu kolizie (cuvanie dozadu?)
 
-        //TODO: dorobit hladania lider bodov k finalnemu bodu (pozicia robota k finalnemu bodu)
-        //TODO: hladat ci je corner blizsie ako finalny bod
-
-
-
-        if((yr-y) >= 0){
-            fi = acos((xr-x)/(sqrt(pow((xr-x),2) + pow((yr-y),2) )));
-
-        }else if((xr-x) >= 0){
-            fi = asin((yr-y)/(sqrt(pow((xr-x),2) + pow((yr-y),2) )));
-
-        }else{
-            fi = (-6.283185/2)+atan((yr-y)/(xr-x));
-        }
-
-        float e_fi = fi - rads;
-        if(e_fi > (6.283185/2)){
-            e_fi -= 6.283185;
-        }else if(e_fi < (-6.283185/2)){
-            e_fi +=6.283185;
-        }
+//        bug2 = crossProduct(0,0,x,y,finish_X,finish_Y);
 
 
-        float e_pos =sqrt(pow((xr-x),2)+ pow((yr-y),2));
+        for(int k=0;k<copyOfLaserData.numberOfScans/*360*/;k++)
+        {
 
+            temp_distance = copyOfLaserData.Data[k].scanDistance/scale;
+            if (stuck == false && temp_distance <= 0.22 && temp_distance >= 0.01){
 
+                robot.setTranslationSpeed(0);
+                bump_count += 1;
 
-        float translation_reg = Pt * e_pos + 50; //kontrola ci ma robot spravny uhol pri tom ako ide do bodu
-        if(abs(e_fi) >= 0.4) centered = false;
-
-        if((abs(e_fi) < 0.4) && centered){
-
-            if(translation_reg > 400){
-                translation_reg = 400;
-            }
-
-            if(translation <= translation_reg){
-                translation += 10;
-            }else if(translation > translation_reg) translation -= 20;
-
-            if(translation > translation_reg) translation = translation_reg;
-            if(translation < 0) translation = 0;
-
-            if(e_pos < 0.01){
-                translation = 0;
-                if(!qyr.empty()){
-                    qyr.pop();
-                    qxr.pop();
+                if(k <=70 || k >=205){
+                    //predok
+                    Front_back_det = -1;
+                }else{
+                    Front_back_det = 1;
                 }
+
+                last_movex= x;
+                last_movey= y;
+                stuck = true;
+                step_one = true;
+
+
+//                step_two = false;
+                std::printf("STUCK\n");
+               // std::printf("%f - %d \n", (copyOfLaserData.Data[k].scanDistance/scale), k);
+            }
+//            if (temp_distance <= 0.3 && temp_distance >= 0.01){
+//                bug2 = false;
+//            }
+
+
+            if(k == 0 || k == 68|| k == 207  || k == 28 || k == 247){
+
+                if( k == 0){
+                    //front 0deg
+                    side_int=0;
+                }else if ( k == 68){
+                    //left 90deg
+                    side_int=1;
+
+                }else if( k == 207){
+                    //right271 deg
+                    side_int=2;
+                }else if(k == 28){
+                    //left 38deg
+                    side_int=3;
+                }else if (k == 247){
+                    //right38 deg
+                    side_int=4;
+                }
+
+                //distance
+                cloud[side_int][0]=copyOfLaserData.Data[k].scanDistance/scale; ///vzdialenost nahodne predelena 20 aby to nejako vyzeralo v okne.. zmen podla uvazenia
+                //x
+                cloud[side_int][1]=(rect.width()-(rect.width()/2+cloud[side_int][0]*2*sin((360.0-copyOfLaserData.Data[k].scanAngle)*3.14159/180.0))+rect.topLeft().x())/scale; //prepocet do obrazovky
+                //y
+                cloud[side_int][2]=(rect.height()-(rect.height()/2+cloud[side_int][0]*2*cos((360.0-copyOfLaserData.Data[k].scanAngle)*3.14159/180.0))+rect.topLeft().y())/scale;//prepocet do obrazovky
+                //std::printf("%f - %d \n", (((360.0-copyOfLaserData.Data[k].scanAngle)*3.14159/180.0) * 180/3.14159), k);
+               //std::printf("%f - %d \n", (copyOfLaserData.Data[k].scanDistance/scale), k);
             }
 
-            if(abs(e_fi) < 0.01){
-                robot.setArcSpeed(translation,0);
-            }else if(e_fi > 0){
-                robot.setArcSpeed(translation,300);
-            }else if(e_fi < 0){
-                robot.setArcSpeed(translation,-300);
-            }
-        }else{
-
-            robot.setRotationSpeed(Pr*e_fi);
-            if(abs(e_fi) < 0.025) centered = true;
         }
 
-    emit uiValuesChanged(fi, rads,(abs(e_fi))/*e_fi/*rads*(180/pi1)*/);
+
+            //std::thread thread1(&MainWindow::robotStagnationDetection,this,x, y);
+
+//double side_dis = calculateHypotenuse(0.15,0.1);
+
+//std::printf("%f -this \n", side_dis);
+//if(side_move == false && stuck == false){
+//        if(calculate_Distance((cloud[0][1] + x_pos),(cloud[0][2] + y_pos),finish_X,finish_Y) <= 0.3){
+
+//            robot.setRotationSpeed(0);
+//            robot.setTranslationSpeed(0);
+//            MoveRobot( x,  y, rads);
+
+
+distance_travelled = abs(calculate_Distance(last_movex,last_movey,x,y));
+
+
+
+//std::printf("%f  \n", distance_travelled);
+
+
+if(abs(calculate_Distance(finish_X,finish_Y,x,y)) <= 0.03){
+    robot.setTranslationSpeed(0);
+    robot.setRotationSpeed(0);
+    std::this_thread::sleep_for(std::chrono::milliseconds(500));
+    distance_to_finish = distance_to_finish*2;
+    std::printf("FINISH stop\n");
+}
+else if(abs(calculate_Distance(finish_X,finish_Y,x,y)) <= distance_to_finish){
+    robot.setRotationSpeed(0);
+    robot.setTranslationSpeed(0);
+    wall_follow = false;
+    Left_wall = false;
+    MoveRobot( x,  y, rads);
+
+     std::printf("FINISH move\n");
+
+//}else if(bug2){
+//    robot.setRotationSpeed(0);
+//    robot.setTranslationSpeed(0);
+//    MoveRobot( x,  y, rads);
+
+//    bug2 = false;
+
+
+}else{
+
+
+    if(stuck){
+
+
+
+    //    else if(step_two){
+    //        robot.setTranslationSpeed(speed);
+    //        std::printf("stuck 2\n");
+    //        if(distance_travelled >= 0.1 ){
+    //            last_movex= x;
+    //            last_movey= y;
+
+    //            step_two = false;
+    //            stuck = false;
+    //        }
+
+    //    }
+        if(distance_travelled >= 0.1 ){
+    //        std::printf("stuck 3\n");
+            robot.setTranslationSpeed(0);
+            robot.setRotationSpeed(1);
+            std::this_thread::sleep_for(std::chrono::milliseconds(500));
+
+
+            last_movex= x;
+            last_movey= y;
+
+            switch_go = true;
+            step_one = false;
+            stuck = false;
+            //v
+
+        }else if(step_one){
+
+            //robot.setTranslationSpeed(Front_back_det*speed);
+            robot.setTranslationSpeed(Front_back_det*300);
+    //        std::printf("stuck 1\n");
+        }
+
+
+
+    }else if(switch_go){
+
+//        if(((cloud[0][0] <= 0.10 && cloud[0][0] >= 0.01) || (cloud[1][0] <= 0.10 && cloud[1][0] >= 0.01) || (cloud[2][0] <= 0.10 && cloud[2][0] >= 0.01))){
+//            ramp(1, false);
+//            distance_count = false;
+//            switch_go = false;
+//        }
+//        else
+    if(distance_travelled >= 0.2 && distance_count){
+            robot.setTranslationSpeed(0);
+                std::printf("stop move\n");
+                last_movex= x;
+                last_movey= y;
+            distance_count = false;
+            switch_go = false;
+            bump_count = 0;
+        }else if(distance_count){
+
+                robot.setTranslationSpeed(300);
+    }
+    }else if(switch_go == false){
+
+     if(bump_count >=1){
+
+         robot.setTranslationSpeed(0);
+         robot.setRotationSpeed(-1);
+
+         //if(copyOfLaserData.Data[0].scanDistance/scale >= 0.6 && copyOfLaserData.Data[0].scanDistance/scale != 0){
+         temp_distance = copyOfLaserData.Data[0].scanDistance/scale;
+             while(temp_distance >= 0.4 && temp_distance >= 0.01){
+                 std::this_thread::sleep_for(std::chrono::milliseconds(100));
+                 //std::printf("%f  \n", (copyOfLaserData.Data[1].scanDistance/scale));
+                 robot.setRotationSpeed(-1);
+                 std::printf("loop3 \n");
+                 temp_distance = copyOfLaserData.Data[0].scanDistance/scale;
+             }
+        robot.setRotationSpeed(0);
+        std::printf("bump \n");
+         //}
+        bump_count =0;
+
+    }else if (((cloud[0][0] <= 0.40 && cloud[0][0] >= 0.01) || (cloud[1][0] <= 0.40 && cloud[1][0] >= 0.01) || (cloud[2][0] <= 0.40 && cloud[2][0] >= 0.01))){
+
+                    robot.setTranslationSpeed(0);
+
+
+                    robot.setRotationSpeed(1);
+
+
+                    //std::printf("%f \n", (copyOfLaserData.Data[0].scanDistance/scale));
+                        temp_distance = copyOfLaserData.Data[0].scanDistance/scale;
+                        if(temp_distance <= 1 && temp_distance >= 0.01){
+
+                            while((temp_distance <= 1 && temp_distance >= 0.01) || (copyOfLaserData.Data[28].scanDistance/scale <= side_distance && copyOfLaserData.Data[28].scanDistance/scale >= 0.01)|| (copyOfLaserData.Data[247].scanDistance/scale <= side_distance && copyOfLaserData.Data[247].scanDistance/scale >= 0.01)){
+                                std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    //                            std::printf("%f  \n", (copyOfLaserData.Data[1].scanDistance/scale));
+                                //std::printf("here x1 \n");
+                                robot.setRotationSpeed(1);
+                                std::printf("loop2 \n");
+                                temp_distance = copyOfLaserData.Data[0].scanDistance/scale;
+                            }
+
+                        }
+    //                    else if (copyOfLaserData.Data[28].scanDistance/scale <= side_distance || copyOfLaserData.Data[247].scanDistance/scale <= side_distance){
+    //                        while((copyOfLaserData.Data[0].scanDistance/scale <= 1 && copyOfLaserData.Data[0].scanDistance/scale >= 0.01) || (copyOfLaserData.Data[28].scanDistance/scale <= side_distance && copyOfLaserData.Data[28].scanDistance/scale >= 0.01)|| (copyOfLaserData.Data[247].scanDistance/scale <= side_distance && copyOfLaserData.Data[247].scanDistance/scale >= 0.01) ){
+    //                            std::this_thread::sleep_for(std::chrono::milliseconds(200));
+    ////                            std::printf("%f  \n", (copyOfLaserData.Data[1].scanDistance/scale));
+    //                            std::printf("here y1 \n");
+    //                        }
+    //                    }
+
+                        robot.setRotationSpeed(0);
+
+                    std::printf("here1 \n");
+                    //robot.setTranslationSpeed(speed);
+                    if(distance_count == false){
+                        last_movex= x;
+                        last_movey= y;
+                        distance_count = true;
+
+                    }
+                    switch_go = true;
+                    wall_follow = true;
+                    bump_count =0;
+
+                }else if((wall_follow) && ((cloud[1][0] >= 0.6) || (cloud[2][0] >= 0.6) || (copyOfLaserData.Data[140].scanDistance/scale >= 0.6))){
+                    //std::printf("here2 \n");
+                    robot.setTranslationSpeed(0);
+
+
+                        robot.setRotationSpeed(-1);
+
+                        //if(copyOfLaserData.Data[0].scanDistance/scale >= 0.6 && copyOfLaserData.Data[0].scanDistance/scale != 0){
+                        temp_distance = copyOfLaserData.Data[0].scanDistance/scale;
+                            while(temp_distance >= 0.8){
+                                std::this_thread::sleep_for(std::chrono::milliseconds(10));
+                                //std::printf("%f  \n", (copyOfLaserData.Data[1].scanDistance/scale));
+                                std::printf("loop1 \n");
+                                robot.setRotationSpeed(-1);
+                                temp_distance = copyOfLaserData.Data[0].scanDistance/scale;
+                            }
+
+                        //}
+
+
+                    std::printf("here3 \n");
+                    robot.setRotationSpeed(0);
+
+                    if(distance_count == false){
+                        last_movex= x;
+                        last_movey= y;
+                        distance_count = true;
+                    }
+                    //robot.setTranslationSpeed(speed);
+                    switch_go = true;
+
+
+                }else{
+                    std::printf("here4 \n");
+                    wall_follow = false;
+                    Left_wall = false;
+                    MoveRobot( x,  y, rads);
+
+                }
 
     }
-    datacounter++;
+}
 
-    return 0;
+//thread1.join();
+
+        datacounter++;
+
+        return 0;
 
 }
+
+double MainWindow::calculate_Distance(double xx1, double yy1, double xx2, double yy2) {
+    double dx = xx2 - xx1;
+    double dy = yy2 - yy1;
+    double distance = std::sqrt(dx * dx + dy * dy);
+    return distance;
+}
+
+void MainWindow::MoveRobot(float x, float y,float rads)
+{
+    static double fi = 0;
+    double Pr = 1.00;
+    int Pt = 500;
+    static bool centered = false;
+    static int translation = 0;
+    static double arc_reg = 10000;
+
+
+
+                if(!qyr.empty()){
+                    yr = qyr.front();
+                    xr = qxr.front();
+                }
+                double finish = 0.1;
+                /*if (qyr.size() > 1){
+                    finish = 0.2;
+                }*/
+
+
+                if((yr-y) >= 0){
+                    fi = acos((xr-x)/(sqrt(pow((xr-x),2) + pow((yr-y),2) )));
+
+                }else if((xr-x) >= 0){
+                    fi = asin((yr-y)/(sqrt(pow((xr-x),2) +
+                                           pow((yr-y),2) )));
+
+                }else{
+                    fi = (-6.283185/2)+atan((yr-y)/(xr-x));
+                }
+
+                double e_fi = fi - rads;
+                if(e_fi > (6.283185/2)){
+                    e_fi -= 6.283185;
+                }else if(e_fi < (-6.283185/2)){
+                    e_fi +=6.283185;
+                }
+
+
+                float e_pos =sqrt(pow((xr-x),2)+ pow((yr-y),2));
+                float translation_reg = Pt * e_pos + 50;
+                arc_reg = 200/e_fi;
+                if(arc_reg == 0) arc_reg = 32767;
+
+
+
+                if(abs(e_fi) >= 0.2) centered = false;
+
+                if((abs(e_fi) < 0.2) && centered){
+
+                    if(translation_reg > 400){
+                        translation_reg = 400;
+                    }
+
+                    if(translation <= translation_reg){
+                        translation += 5;
+                    }else if(translation > translation_reg) translation -= 5;
+
+                    if(translation > translation_reg) translation = translation_reg;
+                    if(translation < 0) translation = 0;
+
+                    if(e_pos < finish){
+                        translation = 0;
+                        if(!qyr.empty()){
+                            qyr.pop();
+                            qxr.pop();
+                        }
+                    }
+
+                    robot.setArcSpeed(translation,arc_reg);
+
+
+                }else{
+                    translation -= 10;
+                    if(translation < 0) translation = 0;
+                    if(translation > 0) robot.setTranslationSpeed(translation);
+
+                    if(translation == 0){
+                        double rotacia = Pr*e_fi;
+                        if(rotacia > 3.14159/3) rotacia = 3.14159/3;
+                        if(rotacia < -3.14159/3) rotacia = -3.14159/3;
+                        robot.setRotationSpeed(rotacia);
+
+                    }
+                    if(abs(e_fi) < 0.04) centered = true;
+                }
+
+
+
+
+}
+
+void MainWindow::RotateRobot(float x, float y,float rads)
+{
+    static double fi = 0;
+    double Pr = 1.00;
+    static int translation = 0;
+
+
+    if(!qyr.empty()){
+        yr = qyr.front();
+        xr = qxr.front();
+    }
+
+                if((yr-y) >= 0){
+                    fi = acos((xr-x)/(sqrt(pow((xr-x),2) + pow((yr-y),2) )));
+
+                }else if((xr-x) >= 0){
+                    fi = asin((yr-y)/(sqrt(pow((xr-x),2) +
+                                           pow((yr-y),2) )));
+
+                }else{
+                    fi = (-6.283185/2)+atan((yr-y)/(xr-x));
+                }
+
+                double e_fi = fi - rads;
+                if(e_fi > (6.283185/2)){
+                    e_fi -= 6.283185;
+                }else if(e_fi < (-6.283185/2)){
+                    e_fi +=6.283185;
+                }
+
+
+
+                    if(translation < 0) translation = 0;
+                    if(translation > 0) robot.setTranslationSpeed(translation);
+
+                    if(translation == 0){
+                        double rotacia = Pr*e_fi;
+                        if(rotacia > 3.14159/3) rotacia = 3.14159/3;
+                        if(rotacia < -3.14159/3) rotacia = -3.14159/3;
+                        robot.setRotationSpeed(rotacia);
+
+                    }
+
+
+
+
+
+
+}
+
 
 ///toto je calback na data z lidaru, ktory ste podhodili robotu vo funkcii on_pushButton_9_clicked
 /// vola sa ked dojdu nove data z lidaru
@@ -284,186 +786,14 @@ int MainWindow::processThisLidar(LaserMeasurement laserData)
     QRect rect;
     rect= ui->frame->geometry();//ziskate porametre stvorca,do ktoreho chcete kreslit
     rect.translate(0,15);
-    static float cloud[360][3];
-    static float cloud_distance[360];
-    static float corner_1[3];
-    static float corner_2[3];
-    static float corner_destination[3];
-    static float midpoint_x,midpoint_y;
-    float scale = 100;
-    float distance_D_corner1_to_robot=10000;
-    float distance_D_corner2_to_finish=10000;
+
 
 
     memcpy( &copyOfLaserData,&laserData,sizeof(LaserMeasurement));
     //tu mozete robit s datami z lidaru.. napriklad najst prekazky, zapisat do mapy. naplanovat ako sa prekazke vyhnut.
     // ale nic vypoctovo narocne - to iste vlakno ktore cita data z lidaru
-    for(int k=0;k<copyOfLaserData.numberOfScans/*360*/;k++)
-    {
-        //distance
-        cloud[k][0]=copyOfLaserData.Data[k].scanDistance/20; ///vzdialenost nahodne predelena 20 aby to nejako vyzeralo v okne.. zmen podla uvazenia
-        //x
-        cloud[k][1]=rect.width()-(rect.width()/2+cloud[k][0]*2*sin((360.0-copyOfLaserData.Data[k].scanAngle)*3.14159/180.0))+rect.topLeft().x(); //prepocet do obrazovky
-        //y
-        cloud[k][2]=rect.height()-(rect.height()/2+cloud[k][0]*2*cos((360.0-copyOfLaserData.Data[k].scanAngle)*3.14159/180.0))+rect.topLeft().y();//prepocet do obrazovky
 
 
-
-        //pocita vzdialenost medzi dvoma bodmi z lidaru
-        if(k != 276){
-            //distance
-            cloud[k+1][0]=copyOfLaserData.Data[k+1].scanDistance/20; ///vzdialenost nahodne predelena 20 aby to nejako vyzeralo v okne.. zmen podla uvazenia
-            //x
-            cloud[k+1][1]=rect.width()-(rect.width()/2+cloud[k+1][0]*2*sin((360.0-copyOfLaserData.Data[k+1].scanAngle)*3.14159/180.0))+rect.topLeft().x(); //prepocet do obrazovky
-            //y
-            cloud[k+1][2]=rect.height()-(rect.height()/2+cloud[k+1][0]*2*cos((360.0-copyOfLaserData.Data[k+1].scanAngle)*3.14159/180.0))+rect.topLeft().y();//prepocet do obrazovky
-
-            cloud_distance[k]= sqrt((cloud[k+1][1]-cloud[k][1])*(cloud[k+1][1]-cloud[k][1]) + (cloud[k+1][2]-cloud[k][2])*(cloud[k+1][2]-cloud[k][2]));
-
-        }else{
-            cloud_distance[k]= sqrt((cloud[0][1]-cloud[k][1])*(cloud[0][1]-cloud[k][1]) + (cloud[0][2]-cloud[k][2])*(cloud[0][2]-cloud[k][2]));
-        }
-
-
-        // vyberie 2 body ktore su od seba najdalej predpoklada sa ze to budu rohy prekazok (funguje len do urcitej dialky)
-        if(cloud_distance[k] >= 60 && k != 276){
-            corner_1[0]=cloud[k][1]/scale; //x
-            corner_1[1]=cloud[k][2]/scale; //y
-            corner_1[2]=cloud[k][0]/scale; //distance from robot
-
-            corner_2[0]=cloud[k+1][1]/scale; //x
-            corner_2[1]=cloud[k+1][2]/scale; //y
-            corner_2[2]=cloud[k+1][0]/scale; //distance from robot
-
-            //pocitanie vzdialenosti robota k finalnemu bodu
-
-            float distance_corner1_to_robot= sqrt((corner_1[0]-x_pos)*(corner_1[0]-x_pos) + (corner_1[1]-y_pos)*(corner_1[1]-y_pos));
-            float distance_corner2_to_robot= sqrt((corner_2[0]-x_pos)*(corner_2[0]-x_pos) + (corner_2[1]-y_pos)*(corner_2[1]-y_pos));
-            float distance_corner1_to_finish= sqrt((corner_1[0]-finish_X)*(corner_1[0]-finish_X) + (corner_1[1]-finish_Y)*(corner_1[1]-finish_Y));
-            float distance_corner2_to_finish= sqrt((corner_1[0]-finish_X)*(corner_1[0]-finish_X) + (corner_1[1]-finish_Y)*(corner_1[1]-finish_Y));
-
-
-           if(corner_destination[0] == NULL){
-                    corner_destination[0]=corner_2[0]; //x
-                    corner_destination[1]=corner_2[1]; //y
-                    corner_destination[2]=corner_2[2]; //distance from robot
-
-                    distance_D_corner1_to_robot= sqrt((corner_destination[0]-x_pos)*(corner_destination[0]-x_pos) + (corner_destination[1]-y_pos)*(corner_destination[1]-y_pos));
-                    distance_D_corner2_to_finish= sqrt((corner_destination[0]-finish_X)*(corner_destination[0]-finish_X) + (corner_destination[1]-finish_Y)*(corner_destination[1]-finish_Y));
-
-
-            }else if(((distance_corner2_to_robot + distance_corner2_to_finish) < (distance_D_corner1_to_robot + distance_D_corner2_to_finish)) || ((distance_corner1_to_robot + distance_corner1_to_finish) < (distance_D_corner1_to_robot + distance_D_corner2_to_finish))){
-
-               if((distance_corner2_to_robot + distance_corner2_to_finish) < (distance_corner1_to_robot + distance_corner1_to_finish)){
-                   corner_destination[0]=corner_2[0]; //x
-                   corner_destination[1]=corner_2[1]; //y
-                   corner_destination[2]=corner_2[2]; //distance from robot
-
-                   distance_D_corner1_to_robot= sqrt((corner_destination[0]-x_pos)*(corner_destination[0]-x_pos) + (corner_destination[1]-y_pos)*(corner_destination[1]-y_pos));
-                   distance_D_corner2_to_finish= sqrt((corner_destination[0]-finish_X)*(corner_destination[0]-finish_X) + (corner_destination[1]-finish_Y)*(corner_destination[1]-finish_Y));
-                   midpoint_x = (corner_1[0]+corner_2[0])/2;
-                   midpoint_y = (corner_1[1]+corner_2[1])/2;
-
-//                       midpoint_x = corner_1[0];
-//                       midpoint_y = corner_1[1];
-
-                }else{
-                   corner_destination[0]=corner_1[0]; //x
-                   corner_destination[1]=corner_1[1]; //y
-                   corner_destination[2]=corner_1[2]; //distance from robot
-
-                   distance_D_corner1_to_robot= sqrt((corner_destination[0]-x_pos)*(corner_destination[0]-x_pos) + (corner_destination[1]-y_pos)*(corner_destination[1]-y_pos));
-                   distance_D_corner2_to_finish= sqrt((corner_destination[0]-finish_X)*(corner_destination[0]-finish_X) + (corner_destination[1]-finish_Y)*(corner_destination[1]-finish_Y));
-                   midpoint_x = (corner_1[0]+corner_2[0])/2;
-                   midpoint_y = (corner_1[1]+corner_2[1])/2;
-//                       midpoint_x = corner_1[0];
-//                       midpoint_y = corner_1[1];
-
-               }
-
-
-
-           }
-
-            if((distance_corner2_to_robot + distance_corner2_to_finish) < (distance_corner1_to_robot + distance_corner1_to_finish)){
-                corner_1[0]=corner_2[0]; //x
-                corner_1[1]=corner_2[1]; //y
-                corner_1[2]=corner_2[2]; //distance from robot
-            }
-
-        }else if(cloud_distance[k] >= 60 && k == 276){
-            corner_1[0]=cloud[k][1]/scale; //x
-            corner_1[1]=cloud[k][2]/scale; //y
-            corner_1[2]=cloud[k][0]/scale; //distance from robot
-
-            corner_2[0]=cloud[0][1]/scale; //x
-            corner_2[1]=cloud[0][2]/scale; //y
-            corner_2[2]=cloud[0][0]/scale; //distance from robot
-
-            //select point closer to destination
-
-            float distance_corner1_to_robot= sqrt((corner_1[0]-x_pos)*(corner_1[0]-x_pos) + (corner_1[1]-y_pos)*(corner_1[1]-y_pos));
-            float distance_corner2_to_robot= sqrt((corner_2[0]-x_pos)*(corner_2[0]-x_pos) + (corner_2[1]-y_pos)*(corner_2[1]-y_pos));
-            float distance_corner1_to_finish= sqrt((corner_1[0]-xr)*(corner_1[0]-xr) + (corner_1[1]-yr)*(corner_1[1]-yr));
-            float distance_corner2_to_finish= sqrt((corner_1[0]-xr)*(corner_1[0]-xr) + (corner_1[1]-yr)*(corner_1[1]-yr));
-
-            if(corner_destination[0] == NULL){
-                     corner_destination[0]=corner_2[0]; //x
-                     corner_destination[1]=corner_2[1]; //y
-                     corner_destination[2]=corner_2[2]; //distance from robot
-
-                     distance_D_corner1_to_robot= sqrt((corner_destination[0]-x_pos)*(corner_destination[0]-x_pos) + (corner_destination[1]-y_pos)*(corner_destination[1]-y_pos));
-                     distance_D_corner2_to_finish= sqrt((corner_destination[0]-finish_X)*(corner_destination[0]-finish_X) + (corner_destination[1]-finish_Y)*(corner_destination[1]-finish_Y));
-
-
-             }else if(((distance_corner2_to_robot + distance_corner2_to_finish) < (distance_D_corner1_to_robot + distance_D_corner2_to_finish)) || ((distance_corner1_to_robot + distance_corner1_to_finish) < (distance_D_corner1_to_robot + distance_D_corner2_to_finish))){
-
-                if((distance_corner2_to_robot + distance_corner2_to_finish) < (distance_corner1_to_robot + distance_corner1_to_finish)){
-                    corner_destination[0]=corner_2[0]; //x
-                    corner_destination[1]=corner_2[1]; //y
-                    corner_destination[2]=corner_2[2]; //distance from robot
-
-                    distance_D_corner1_to_robot= sqrt((corner_destination[0]-x_pos)*(corner_destination[0]-x_pos) + (corner_destination[1]-y_pos)*(corner_destination[1]-y_pos));
-                    distance_D_corner2_to_finish= sqrt((corner_destination[0]-finish_X)*(corner_destination[0]-finish_X) + (corner_destination[1]-finish_Y)*(corner_destination[1]-finish_Y));
-                    midpoint_x = (corner_1[0]+corner_2[0])/2;
-                    midpoint_y = (corner_1[1]+corner_2[1])/2;
-
-//                       midpoint_x = corner_1[0];
-//                       midpoint_y = corner_1[1];
-
-
-                 }else{
-                    corner_destination[0]=corner_1[0]; //x
-                    corner_destination[1]=corner_1[1]; //y
-                    corner_destination[2]=corner_1[2]; //distance from robot
-
-                    distance_D_corner1_to_robot= sqrt((corner_destination[0]-x_pos)*(corner_destination[0]-x_pos) + (corner_destination[1]-y_pos)*(corner_destination[1]-y_pos));
-                    distance_D_corner2_to_finish= sqrt((corner_destination[0]-finish_X)*(corner_destination[0]-finish_X) + (corner_destination[1]-finish_Y)*(corner_destination[1]-finish_Y));
-                    midpoint_x = (corner_1[0]+corner_2[0])/2;
-                    midpoint_y = (corner_1[1]+corner_2[1])/2;
-//                       midpoint_x = corner_1[0];
-//                       midpoint_y = corner_1[1];
-
-                }
-
-
-
-            }
-
-
-        }
-
-       // printf("X: %d   Y: %d   Dis: %d  K: %d points_dis: %d\n",cloud[k][1] ,cloud[k][2] , cloud[k][0], k,cloud_distance[k]);
-
-        //printf("X: %f   Y: %f   Dis: %f\n",corner_1[0], corner_1[1],corner_1[2]);
-
-        printf("X: %f   Y: %f \n",midpoint_x, midpoint_y);
-        if(yr !=midpoint_y && midpoint_x !=xr && midpoint_y != 0 && midpoint_x != 0){
-            yr = midpoint_y;
-            xr = midpoint_x;
-        }
-
-    }
 
     updateLaserPicture=1;
     update();//tento prikaz prinuti prekreslit obrazovku.. zavola sa paintEvent funkcia
@@ -472,6 +802,7 @@ int MainWindow::processThisLidar(LaserMeasurement laserData)
     return 0;
 
 }
+
 
 ///toto je calback na data z kamery, ktory ste podhodili robotu vo funkcii on_pushButton_9_clicked
 /// vola sa ked dojdu nove data z kamery
